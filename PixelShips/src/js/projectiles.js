@@ -1,5 +1,11 @@
 import { canvas, ctx } from "./canvas.js";
-import { getShellSprite } from "./assets.js";
+import {
+  getShellSprite,
+  getTorpedoSpriteSheet,
+  getBombSprite,
+} from "./assets.js";
+import { spawnSplash } from "./effects.js";
+import { state } from "./state.js";
 
 export const playerProjectiles = [];
 export const enemyProjectiles = [];
@@ -16,7 +22,7 @@ export const ProjectileType = {
   torpedo: {
     speedMultiplier: 0.35,
     color: "#fde68a",
-    useSprite: false,
+    useSprite: true,
     hasRangeFalloff: false,
     isStationary: false,
     damage: 10,
@@ -24,12 +30,18 @@ export const ProjectileType = {
   bomb: {
     speedMultiplier: 1,
     color: "#7dd3fc",
-    useSprite: false,
+    useSprite: true,
     hasRangeFalloff: false,
     isStationary: true,
     damage: 20,
   },
 };
+
+const TORPEDO_COLS = 4;
+const TORPEDO_ROWS = 2;
+const TORPEDO_FRAME_COUNT = TORPEDO_COLS * TORPEDO_ROWS;
+const TORPEDO_FRAME_DURATION = 80;
+const TORPEDO_DRAW_SIZE = 32;
 
 function createProjectile(posX, posY, dirX, dirY, damage, type, lifetime) {
   return {
@@ -46,6 +58,8 @@ function createProjectile(posX, posY, dirX, dirY, damage, type, lifetime) {
     detonating: false,
     hasExploded: false,
     distanceTraveled: 0,
+    frame: 0,
+    frameTimer: 0,
   };
 }
 
@@ -57,6 +71,7 @@ export function spawnPlayerProjectile(
   damage,
   type = "basic",
 ) {
+  state.stats.p1ShotsFired++;
   playerProjectiles.push(
     createProjectile(
       posX,
@@ -78,6 +93,7 @@ export function spawnEnemyProjectile(
   damage,
   type = "basic",
 ) {
+  state.stats.p2ShotsFired++;
   enemyProjectiles.push(
     createProjectile(
       posX,
@@ -106,6 +122,7 @@ function advanceProjectile(projectile, baseSpeed) {
       speed *= Math.max(0, 1 - overshoot / falloffRange);
       if (speed < 0.3) {
         projectile.active = false;
+        if (projectile.type === "basic") spawnSplash(projectile.x, projectile.y);
         return;
       }
     }
@@ -136,6 +153,7 @@ export function updateProjectiles(dt) {
       continue;
     }
     advanceProjectile(projectile, baseSpeed);
+    if (projectile.type === "torpedo") advanceTorpedoFrame(projectile, dt);
   }
 
   for (const projectile of enemyProjectiles) {
@@ -146,10 +164,19 @@ export function updateProjectiles(dt) {
       continue;
     }
     advanceProjectile(projectile, baseSpeed);
+    if (projectile.type === "torpedo") advanceTorpedoFrame(projectile, dt);
   }
 
   removeInactive(playerProjectiles);
   removeInactive(enemyProjectiles);
+}
+
+function advanceTorpedoFrame(projectile, dt) {
+  projectile.frameTimer += dt;
+  if (projectile.frameTimer >= TORPEDO_FRAME_DURATION) {
+    projectile.frameTimer -= TORPEDO_FRAME_DURATION;
+    projectile.frame = (projectile.frame + 1) % TORPEDO_FRAME_COUNT;
+  }
 }
 
 const SHELL_SIZE = 16;
@@ -159,7 +186,50 @@ function drawProjectile(projectile) {
   ctx.save();
   ctx.translate(projectile.x, projectile.y);
 
-  if (typeConfig.useSprite) {
+  if (projectile.type === "torpedo") {
+    const sheet = getTorpedoSpriteSheet();
+    if (sheet.complete && sheet.naturalWidth > 0) {
+      const frameW = sheet.naturalWidth / TORPEDO_COLS;
+      const frameH = sheet.naturalHeight / TORPEDO_ROWS;
+      const col = projectile.frame % TORPEDO_COLS;
+      const row = Math.floor(projectile.frame / TORPEDO_COLS);
+      ctx.rotate(Math.atan2(projectile.dirY, projectile.dirX) + Math.PI);
+      ctx.drawImage(
+        sheet,
+        col * frameW,
+        row * frameH,
+        frameW,
+        frameH,
+        -TORPEDO_DRAW_SIZE / 2,
+        -TORPEDO_DRAW_SIZE / 2,
+        TORPEDO_DRAW_SIZE,
+        TORPEDO_DRAW_SIZE,
+      );
+    } else {
+      ctx.fillStyle = typeConfig.color;
+      ctx.rotate(Math.atan2(projectile.dirY, projectile.dirX) + Math.PI / 2);
+      ctx.fillRect(
+        -projectile.width / 2,
+        -projectile.height / 2,
+        projectile.width,
+        projectile.height,
+      );
+    }
+  } else if (projectile.type === "bomb") {
+    const sprite = getBombSprite();
+    if (sprite.complete && sprite.naturalWidth > 0) {
+      const bombSize = 24;
+      ctx.drawImage(sprite, -bombSize / 2, -bombSize / 2, bombSize, bombSize);
+    } else {
+      ctx.fillStyle = typeConfig.color;
+      ctx.fillRect(
+        -projectile.width / 2,
+        -projectile.height / 2,
+        projectile.width,
+        projectile.height,
+      );
+    }
+  } else if (typeConfig.useSprite) {
     const sprite = getShellSprite(projectile.dirX, projectile.dirY);
     if (sprite.complete && sprite.naturalWidth > 0) {
       ctx.drawImage(

@@ -2,6 +2,7 @@ import { player } from "./player.js";
 import { enemy } from "./enemy.js";
 import { playerProjectiles, enemyProjectiles } from "./projectiles.js";
 import { state } from "./state.js";
+
 import { spawnExplosion } from "./effects.js";
 
 function overlaps(aX, aY, aWidth, aHeight, bX, bY, bWidth, bHeight) {
@@ -39,7 +40,9 @@ export function checkCollisions() {
         Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y) <
         BLAST_RADIUS
       ) {
-        enemy.health -= projectile.damage;
+        const dmg = Math.min(projectile.damage, enemy.health);
+        enemy.health -= dmg;
+        state.stats.p1DamageDealt += dmg;
         if (enemy.health <= 0) state.gameState = "win";
       }
       projectile.active = false;
@@ -58,7 +61,9 @@ export function checkCollisions() {
       )
     ) {
       explode(projectile, EXPLOSION_SIZE[projectile.type]);
-      enemy.health -= projectile.damage;
+      const dmg = Math.min(projectile.damage, enemy.health);
+      enemy.health -= dmg;
+      state.stats.p1DamageDealt += dmg;
       projectile.active = false;
       if (enemy.health <= 0) state.gameState = "win";
     }
@@ -73,7 +78,9 @@ export function checkCollisions() {
         Math.hypot(projectile.x - player.x, projectile.y - player.y) <
         BLAST_RADIUS
       ) {
-        player.health -= projectile.damage;
+        const dmg = Math.min(projectile.damage, player.health);
+        player.health -= dmg;
+        state.stats.p2DamageDealt += dmg;
         if (player.health <= 0) state.gameState = "gameOver";
       }
       projectile.active = false;
@@ -92,7 +99,9 @@ export function checkCollisions() {
       )
     ) {
       explode(projectile, EXPLOSION_SIZE[projectile.type]);
-      player.health -= projectile.damage;
+      const dmg = Math.min(projectile.damage, player.health);
+      player.health -= dmg;
+      state.stats.p2DamageDealt += dmg;
       projectile.active = false;
       if (player.health <= 0) state.gameState = "gameOver";
     }

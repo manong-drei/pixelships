@@ -5,9 +5,11 @@ import {
   drawSelectionScreen,
   drawWinScreen,
   drawGameOverScreen,
+  drawPauseScreen,
   handleStartClick,
   handleSelectionClick,
   handleEndClick,
+  handlePauseClick,
   updateCursor,
 } from "./screens.js";
 import * as playerMod from "./player.js";
@@ -40,6 +42,9 @@ import {
   updateExplosions,
   drawExplosions,
   clearExplosions,
+  updateSplashes,
+  drawSplashes,
+  clearSplashes,
 } from "./effects.js";
 import { drawHUD } from "./ui.js";
 
@@ -64,6 +69,7 @@ canvas.addEventListener("click", (event) => {
   const canvasBounds = canvas.getBoundingClientRect();
   const mouseX = event.clientX - canvasBounds.left;
   const mouseY = event.clientY - canvasBounds.top;
+  if (state.paused) { handlePauseClick(mouseX, mouseY); return; }
   if (state.gameState === "start") handleStartClick(mouseX, mouseY);
   else if (state.gameState === "selection")
     handleSelectionClick(mouseX, mouseY);
@@ -75,6 +81,13 @@ const pressedOnce = {};
 window.addEventListener("keydown", (event) => {
   if (pressedOnce[event.code]) return;
   pressedOnce[event.code] = true;
+
+  if (event.code === "Escape" && state.gameState === "playing") {
+    state.paused = !state.paused;
+    return;
+  }
+
+  if (state.paused) return;
 
   if (state.gameState === "playing") {
     // Player 1
@@ -197,9 +210,16 @@ function initGame() {
   clearProjectiles();
   clearPlanes();
   clearExplosions();
+  clearSplashes();
   resetSkills();
   playerBurstQueue.length = 0;
   enemyBurstQueue.length = 0;
+  state.paused = false;
+  state.stats.p1ShotsFired = 0;
+  state.stats.p2ShotsFired = 0;
+  state.stats.p1DamageDealt = 0;
+  state.stats.p2DamageDealt = 0;
+  state.stats.matchTimeMs = 0;
 }
 
 const backgroundImage = new Image();
@@ -270,6 +290,8 @@ function tickBurstQueues(dt) {
 function update(dt) {
   if (state.gameState === "playing") {
     if (prevGameState !== "playing") initGame();
+    if (state.paused) return;
+    state.stats.matchTimeMs += dt;
     playerMod.updatePlayer(dt);
     if (playerMod.player?.classKey === "carrier") fireBasicAttack();
     enemyMod.updateEnemy(dt);
@@ -282,6 +304,7 @@ function update(dt) {
     updateEnemyPlanes(dt);
     checkCollisions();
     updateExplosions(dt);
+    updateSplashes(dt);
   }
   prevGameState = state.gameState;
 }
@@ -301,7 +324,9 @@ function draw() {
     playerMod.drawPlayer();
     enemyMod.drawEnemy();
     drawExplosions();
+    drawSplashes();
     drawHUD();
+    if (state.paused) drawPauseScreen();
   } else if (state.gameState === "win") {
     drawOcean();
     playerMod.drawPlayer();

@@ -1,6 +1,8 @@
 import { canvas, ctx, mouse } from "./canvas.js";
 import { state } from "./state.js";
 import { shipConfig } from "./shipConfig.js";
+import { player } from "./player.js";
+import { enemy } from "./enemy.js";
 
 const CLASS_KEYS = Object.keys(shipConfig);
 
@@ -305,34 +307,159 @@ function drawShipCard(
 }
 
 export function drawWinScreen() {
-  drawEndScreen("#22c55e", "VICTORY!", "You sank the enemy!");
+  drawEndScreen("#22c55e", "VICTORY!", `${shipConfig[player?.classKey]?.label ?? "P1"} wins!`);
 }
 
 export function drawGameOverScreen() {
-  drawEndScreen("#ef4444", "GAME OVER", "Your ship was destroyed.");
+  drawEndScreen("#ef4444", "GAME OVER", `${shipConfig[enemy?.classKey]?.label ?? "P2"} wins!`);
+}
+
+function formatTime(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function drawEndScreen(titleColor, titleText, subtitleText) {
-  ctx.fillStyle = "rgba(15,23,42,0.92)";
+  ctx.fillStyle = "rgba(15,23,42,0.95)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  const cx = canvas.width / 2;
+
+  // Title
   ctx.fillStyle = titleColor;
-  ctx.font = `bold ${Math.floor(canvas.width * 0.07)}px monospace`;
+  ctx.font = `bold ${Math.floor(canvas.width * 0.065)}px monospace`;
   ctx.textAlign = "center";
-  ctx.fillText(titleText, canvas.width / 2, canvas.height * 0.38);
+  ctx.textBaseline = "middle";
+  ctx.fillText(titleText, cx, canvas.height * 0.18);
+
+  // Subtitle
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = `${Math.floor(canvas.width * 0.02)}px monospace`;
+  ctx.fillText(subtitleText, cx, canvas.height * 0.27);
+
+  // Match time
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = `bold ${Math.floor(canvas.width * 0.022)}px monospace`;
+  ctx.fillText(`TIME  ${formatTime(state.stats.matchTimeMs)}`, cx, canvas.height * 0.35);
+
+  // Stats card
+  const cardW = canvas.width * 0.52;
+  const cardH = canvas.height * 0.26;
+  const cardX = cx - cardW / 2;
+  const cardY = canvas.height * 0.4;
+
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+  ctx.fill();
+  ctx.strokeStyle = "#1e3a5f";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+  ctx.stroke();
+
+  const colLeft  = cardX + cardW * 0.22;
+  const colRight = cardX + cardW * 0.78;
+  const rowHeader = cardY + cardH * 0.2;
+  const rowDmg    = cardY + cardH * 0.48;
+  const rowShots  = cardY + cardH * 0.74;
+
+  const p1Color = player?.color ?? "#38bdf8";
+  const p2Color = enemy?.color  ?? "#f87171";
+
+  // Column headers
+  ctx.font = `bold ${Math.floor(canvas.width * 0.018)}px monospace`;
+  ctx.fillStyle = p1Color;
+  ctx.textAlign = "center";
+  ctx.fillText("PLAYER 1", colLeft, rowHeader);
+  ctx.fillStyle = p2Color;
+  ctx.fillText("PLAYER 2", colRight, rowHeader);
+
+  // Divider line
+  ctx.strokeStyle = "#1e3a5f";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 16, rowHeader + 10);
+  ctx.lineTo(cardX + cardW - 16, rowHeader + 10);
+  ctx.stroke();
+
+  // Center labels
+  ctx.fillStyle = "#475569";
+  ctx.font = `${Math.floor(canvas.width * 0.013)}px monospace`;
+  ctx.fillText("DMG", cx, rowDmg);
+  ctx.fillText("SHOTS", cx, rowShots);
+
+  // Values
+  ctx.font = `bold ${Math.floor(canvas.width * 0.022)}px monospace`;
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText(state.stats.p1DamageDealt, colLeft, rowDmg);
+  ctx.fillText(state.stats.p2DamageDealt, colRight, rowDmg);
+  ctx.fillText(state.stats.p1ShotsFired,  colLeft,  rowShots);
+  ctx.fillText(state.stats.p2ShotsFired,  colRight, rowShots);
+
+  ctx.textBaseline = "alphabetic";
+
+  drawButton(cx, canvas.height * 0.79, 240, 50, "PLAY AGAIN", "#0ea5e9");
+}
+
+export function drawPauseScreen() {
+  ctx.fillStyle = "rgba(0,0,0,0.65)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const cx = canvas.width / 2;
+  const cardW = canvas.width * 0.34;
+  const cardH = canvas.height * 0.42;
+  const cardX = cx - cardW / 2;
+  const cardY = canvas.height * 0.26;
+
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 14);
+  ctx.fill();
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 14);
+  ctx.stroke();
 
   ctx.fillStyle = "#f8fafc";
-  ctx.font = `${Math.floor(canvas.width * 0.024)}px monospace`;
-  ctx.fillText(subtitleText, canvas.width / 2, canvas.height * 0.5);
+  ctx.font = `bold ${Math.floor(canvas.width * 0.035)}px monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("PAUSED", cx, cardY + cardH * 0.22);
 
-  drawButton(
-    canvas.width / 2,
-    canvas.height * 0.63,
-    240,
-    54,
-    "PLAY AGAIN",
-    "#0ea5e9",
-  );
+  ctx.strokeStyle = "#1e293b";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 20, cardY + cardH * 0.35);
+  ctx.lineTo(cardX + cardW - 20, cardY + cardH * 0.35);
+  ctx.stroke();
+
+  ctx.textBaseline = "alphabetic";
+
+  drawButton(cx, cardY + cardH * 0.57, cardW * 0.72, 46, "RESUME", "#22c55e");
+  drawButton(cx, cardY + cardH * 0.82, cardW * 0.72, 46, "QUIT TO MENU", "#475569");
+}
+
+export function handlePauseClick(mouseX, mouseY) {
+  const cx = canvas.width / 2;
+  const cardH = canvas.height * 0.42;
+  const cardY = canvas.height * 0.26;
+  const buttonW = canvas.width * 0.34 * 0.72;
+
+  if (isInsideButton(mouseX, mouseY, cx, cardY + cardH * 0.57, buttonW, 46)) {
+    state.paused = false;
+    return;
+  }
+  if (isInsideButton(mouseX, mouseY, cx, cardY + cardH * 0.82, buttonW, 46)) {
+    state.paused = false;
+    state.gameState = "selection";
+    state.playerClass = null;
+    state.enemyClass = null;
+    state.pendingClass = null;
+  }
 }
 
 function drawButton(centerX, centerY, buttonWidth, buttonHeight, label, color) {
@@ -505,6 +632,18 @@ function isInsideButton(
 
 export function updateCursor() {
   let hovered = false;
+
+  if (state.paused) {
+    const cx = canvas.width / 2;
+    const cardH = canvas.height * 0.42;
+    const cardY = canvas.height * 0.26;
+    const buttonW = canvas.width * 0.34 * 0.72;
+    hovered =
+      isInsideButton(mouse.x, mouse.y, cx, cardY + cardH * 0.57, buttonW, 46) ||
+      isInsideButton(mouse.x, mouse.y, cx, cardY + cardH * 0.82, buttonW, 46);
+    canvas.style.cursor = hovered ? "pointer" : "default";
+    return;
+  }
 
   if (state.gameState === "start") {
     hovered =

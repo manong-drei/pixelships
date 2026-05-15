@@ -76,3 +76,15 @@ export function getShellSprite(dirX, dirY) {
   const dirKey = snapDirection(dirX, dirY);
   return loadImage(SHELL_SPRITE_PATHS[dirKey]);
 }
+
+const torpedoSpriteSheet = loadImage("assets/projectiles/trail.png");
+
+export function getTorpedoSpriteSheet() {
+  return torpedoSpriteSheet;
+}
+
+const bombSprite = loadImage("assets/projectiles/bomb.png");
+
+export function getBombSprite() {
+  return bombSprite;
+}
