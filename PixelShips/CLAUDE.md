@@ -1,0 +1,111 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```bash
+# Build Tailwind CSS (one-time)
+npx @tailwindcss/cli -i ./src/input.css -o ./src/output.css
+
+# Watch mode during development
+npx @tailwindcss/cli -i ./src/input.css -o ./src/output.css --watch
+```
+
+Open `src/index.html` directly in a browser — no dev server needed. The game uses ES modules so it must be served over HTTP/file protocol that supports modules (use VS Code Live Server or similar if modules fail to load from `file://`).
+
+There are no tests, no linter, and no build step beyond Tailwind.
+
+---
+
+## Architecture
+
+### How the game loop works
+
+`main.js` is the only file that calls `requestAnimationFrame`. Every frame it calls `update(dt)` then `draw()`. `dt` is milliseconds since the last frame — all cooldown timers (`fireCooldown`, `skillTimer`, turret timers) count down in milliseconds using `dt`.
+
+State transitions are driven by `state.gameState` (in `state.js`). The loop checks this string every frame and routes to the correct update/draw path. The transition from `"selection"` → `"playing"` is detected in `update()` by comparing `prevGameState !== "playing"`, which triggers `initGame()` exactly once.
+
+### Module responsibilities
+
+| Module | Owns | Does NOT own |
+|---|---|---|
+| `state.js` | `gameState`, `playerClass`, `enemyClass` | Nothing else |
+| `canvas.js` | `canvas` element, `ctx`, resize | No game logic |
+| `shipConfig.js` | All ship stats (hp, speed, damage, rates, cooldowns, turretSpec) | No objects |
+| `player.js` | `player` object, P1 keyboard state (`keys`), movement, drawing | Firing (main.js fires on Space) |
+| `enemy.js` | `enemy` (P2) object, P2 keyboard state (`p2Keys`), movement, drawing | Firing (main.js fires on Enter) |
+| `projectiles.js` | Both projectile arrays, movement, drawing | Collision |
+| `collision.js` | AABB hit detection, writes health, sets win/gameOver | No drawing |
+| `skills.js` | Skill dispatch, barrage queue, torpedo/AC mode toggle | Plane flight paths |
+| `planes.js` | `planePending` queue, active plane flight, torpedo/bomb spawning | Skill trigger logic |
+| `ui.js` | HUD drawing only | No state mutation |
+| `screens.js` | All non-gameplay screen drawing + click hit-testing | No game objects |
+| `assets.js` | Ship sprite preloading, directional sprite lookup by ship type + `dir` | No game logic |
+
+### The live binding pattern
+
+`player` and `enemy` are exported as `let` from their modules. Any module that imports them gets a live binding — the value updates automatically when `initPlayer()` / `initEnemy()` reassigns them. **Exception:** `main.js` imports them as `import * as playerMod` / `import * as enemyMod` and accesses `playerMod.player` inside functions (not at module scope) to ensure it always reads the current value.
+
+### Layout and coordinate system
+
+- Origin `(0, 0)` is top-left.
+- P1 (player) spawns at `canvas.width * 0.1, canvas.height / 2` — left side, facing right (`dir: {x:1, y:0}`).
+- P2 (enemy) spawns at `canvas.width * 0.9, canvas.height / 2` — right side, facing left (`dir: {x:-1, y:0}`).
+- All positions are relative to canvas dimensions — never hardcoded pixel values.
+- `ship.dir` is a normalized `{x, y}` vector updated on movement. Projectiles and skill effects use this vector for direction.
+
+### Turret system
+
+Each non-carrier ship has a `turrets` array of `{ roundsLeft, maxRounds, timer, cooldownMs }` objects, initialized from `shipConfig.turretSpec`. Firing logic lives in `main.js`:
+
+- On keypress, all loaded turrets fire simultaneously. Each shot is pushed into a burst queue with an 80 ms stagger.
+- When a turret fires its first round, its reload timer starts immediately (not only when empty).
+- On expiry the timer restores 1 round and restarts until the turret is full.
+- Bullet spawn positions are offset perpendicular to `ship.dir`, spread evenly across `ship.height * 0.8` — one lane per turret.
+
+### Burst queue
+
+`playerBurstQueue` and `enemyBurstQueue` in `main.js` hold pending shots with `{ delay, dirX, dirY, perpOffset }`. Each frame `tickBurstQueues(dt)` decrements delays and spawns projectiles when they reach zero. The queues are cleared on `initGame()`.
+
+### Player firing vs. skill firing
+
+Basic attack (Space / Enter) is handled entirely in `main.js` — it manipulates turret state and pushes to the burst queue. Skills (E / P) go through `skills.js → triggerSkill()`, which uses `player.skillTimer`. The two cooldowns are independent fields on the ship object.
+
+### Ship-level state
+
+Every ship object carries all its own state. No ship state lives in `state.js`. Key fields:
+
+| Field | Purpose |
+|---|---|
+| `turrets` | Array of turret reload state (non-carrier only) |
+| `skillTimer` / `skillCooldown` | Skill readiness |
+| `fireCooldown` / `fireRate` | Carrier auto-fire rate limiter |
+| `acMode` | `"torpedoPlanes"` or `"diveBombers"` (carrier only) |
+| `torpedoMode` | `"wide"` or `"close"` (destroyer only) |
+| `dir` | Normalized facing vector, updated on movement |
+
+### Skills overview
+
+| Ship | Skill (E/P) | Toggle (Q/O) |
+|---|---|---|
+| Destroyer | 4 torpedoes in a fan | Switch torpedo spread: wide / close |
+| Cruiser | 3-shot broadside spread | — |
+| Battleship | 12-bullet barrage (3 volleys × 4 turrets), then full reload | — |
+| Carrier | Launch 2 scout planes | Switch plane type: torpedo / dive bomber |
+
+### Planes flow
+
+`skills.js` pushes plane specs into `planePending` / `enemyPlanePending` (exported arrays from `planes.js`). Each frame, `updatePlanes()` / `updateEnemyPlanes()` drains the queue into `activePlanes` / `activeEnemyPlanes`, advances the flight state machine, and spawns projectiles at the drop point. This decouples skill trigger timing from flight logic.
+
+Plane state machine: **outbound scanning → detection (within 150 px radius) → committed dive or torpedo drop → returning to carrier**. Predictive aiming: at commit/drop time the target position is offset by `target.dir * target.speed * LEAD_FRAMES`.
+
+### Adding a new ship class
+
+1. Add an entry to `shipConfig.js` with all required fields (`health`, `speed`, `damage`, `fireRate`, `skillCooldown`, `skillType`, `color`, `turretSpec`).
+2. Add a `case` to the `switch` in both `triggerSkill()` and `triggerEnemySkill()` in `skills.js`.
+3. The selection screen in `screens.js` iterates `Object.keys(shipConfig)` automatically — no changes needed there.
+
+### Tailwind usage
+
+Tailwind only styles the `<body>` tag (`m-0 p-0 overflow-hidden bg-black`). All gameplay visuals are drawn on the canvas with the Canvas 2D API — Tailwind has no role inside the game itself.
