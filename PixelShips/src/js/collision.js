@@ -1,5 +1,5 @@
 import { player } from "./player.js";
-import { enemy } from "./enemy.js";
+import * as enemyMod from "./enemy.js";
 import { playerProjectiles, enemyProjectiles } from "./projectiles.js";
 import { state } from "./state.js";
 
@@ -28,9 +28,31 @@ const EXPLOSION_SIZE = {
   bomb:    128,
 };
 
-export function checkCollisions() {
-  if (!player || !enemy) return;
+function checkGameOver() {
+  const playerDead = !player || player.health <= 0;
+  const ally = enemyMod.ally;
+  if (state.mode === "coop") {
+    const allyDead = !ally || ally.health <= 0;
+    if (playerDead && allyDead) state.gameState = "gameOver";
+  } else {
+    if (playerDead) state.gameState = "gameOver";
+  }
+}
 
+export function checkCollisions() {
+  if (!player) return;
+
+  const ally = enemyMod.ally;
+
+  if (state.mode === "coop") {
+    checkCoopCollisions(ally);
+    return;
+  }
+
+  const enemy = enemyMod.enemy;
+  if (!enemy) return;
+
+  // Player projectiles → enemy
   for (const projectile of playerProjectiles) {
     if (!projectile.active) continue;
     if (projectile.type === "bomb") {
@@ -69,24 +91,24 @@ export function checkCollisions() {
     }
   }
 
+  // Enemy projectiles → player (and ally in co-op)
   for (const projectile of enemyProjectiles) {
     if (!projectile.active) continue;
     if (projectile.type === "bomb") {
       if (!projectile.detonating) continue;
       explode(projectile, EXPLOSION_SIZE.bomb);
-      if (
-        Math.hypot(projectile.x - player.x, projectile.y - player.y) <
-        BLAST_RADIUS
+      if (player.health > 0 &&
+        Math.hypot(projectile.x - player.x, projectile.y - player.y) < BLAST_RADIUS
       ) {
         const dmg = Math.min(projectile.damage, player.health);
         player.health -= dmg;
         state.stats.p2DamageDealt += dmg;
-        if (player.health <= 0) state.gameState = "gameOver";
+        checkGameOver();
       }
       projectile.active = false;
       continue;
     }
-    if (
+    if (player.health > 0 &&
       overlaps(
         projectile.x,
         projectile.y,
@@ -103,7 +125,91 @@ export function checkCollisions() {
       player.health -= dmg;
       state.stats.p2DamageDealt += dmg;
       projectile.active = false;
-      if (player.health <= 0) state.gameState = "gameOver";
+      checkGameOver();
+    }
+  }
+}
+
+function checkCoopCollisions(ally) {
+  // Player projectiles → each live wave enemy
+  for (const projectile of playerProjectiles) {
+    if (!projectile.active) continue;
+    for (const waveEnemy of enemyMod.waveEnemies) {
+      if (waveEnemy.health <= 0) continue;
+      if (projectile.type === "bomb") {
+        if (!projectile.detonating) continue;
+        explode(projectile, EXPLOSION_SIZE.bomb);
+        if (Math.hypot(projectile.x - waveEnemy.x, projectile.y - waveEnemy.y) < BLAST_RADIUS) {
+          const dmg = Math.min(projectile.damage, waveEnemy.health);
+          waveEnemy.health -= dmg;
+          state.stats.p1DamageDealt += dmg;
+        }
+        projectile.active = false;
+        break;
+      }
+      if (overlaps(
+        projectile.x, projectile.y, projectile.width, projectile.height,
+        waveEnemy.x, waveEnemy.y, waveEnemy.hitboxW, waveEnemy.hitboxH,
+      )) {
+        explode(projectile, EXPLOSION_SIZE[projectile.type]);
+        const dmg = Math.min(projectile.damage, waveEnemy.health);
+        waveEnemy.health -= dmg;
+        state.stats.p1DamageDealt += dmg;
+        projectile.active = false;
+        break;
+      }
+    }
+  }
+
+  // Enemy projectiles → player and ally
+  for (const projectile of enemyProjectiles) {
+    if (!projectile.active) continue;
+    if (projectile.type === "bomb") {
+      if (!projectile.detonating) continue;
+      explode(projectile, EXPLOSION_SIZE.bomb);
+      if (player.health > 0 &&
+        Math.hypot(projectile.x - player.x, projectile.y - player.y) < BLAST_RADIUS
+      ) {
+        const dmg = Math.min(projectile.damage, player.health);
+        player.health -= dmg;
+        state.stats.p2DamageDealt += dmg;
+        checkGameOver();
+      }
+      if (ally && ally.health > 0 &&
+        Math.hypot(projectile.x - ally.x, projectile.y - ally.y) < BLAST_RADIUS
+      ) {
+        const dmg = Math.min(projectile.damage, ally.health);
+        ally.health -= dmg;
+        checkGameOver();
+      }
+      projectile.active = false;
+      continue;
+    }
+    if (player.health > 0 &&
+      overlaps(
+        projectile.x, projectile.y, projectile.width, projectile.height,
+        player.x, player.y, player.hitboxW, player.hitboxH,
+      )
+    ) {
+      explode(projectile, EXPLOSION_SIZE[projectile.type]);
+      const dmg = Math.min(projectile.damage, player.health);
+      player.health -= dmg;
+      state.stats.p2DamageDealt += dmg;
+      projectile.active = false;
+      checkGameOver();
+      continue;
+    }
+    if (ally && ally.health > 0 &&
+      overlaps(
+        projectile.x, projectile.y, projectile.width, projectile.height,
+        ally.x, ally.y, ally.hitboxW, ally.hitboxH,
+      )
+    ) {
+      explode(projectile, EXPLOSION_SIZE[projectile.type]);
+      const dmg = Math.min(projectile.damage, ally.health);
+      ally.health -= dmg;
+      projectile.active = false;
+      checkGameOver();
     }
   }
 }

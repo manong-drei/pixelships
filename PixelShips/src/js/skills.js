@@ -9,6 +9,7 @@ import * as enemyMod from "./enemy.js";
 
 const pendingBarrage = [];
 const pendingEnemyBarrage = [];
+const pendingAllyBarrage = [];
 
 const OVERDRIVE_BOOST_MS = 3000;
 const OVERDRIVE_SLOW_MS = 1500;
@@ -22,6 +23,12 @@ const playerOverdrive = {
   baseCooldownMs: 0,
 };
 const enemyOverdrive = {
+  phase: "none",
+  timer: 0,
+  baseSpeed: 0,
+  baseCooldownMs: 0,
+};
+const allyOverdrive = {
   phase: "none",
   timer: 0,
   baseSpeed: 0,
@@ -72,6 +79,28 @@ export function triggerEnemySkill() {
   }
 }
 
+export function triggerAllySkill() {
+  const ally = enemyMod.ally;
+  if (!ally) return;
+  if (ally.classKey === "carrier") {
+    launchAllyPlanes();
+    return;
+  }
+  if (ally.skillTimer > 0) return;
+  ally.skillTimer = ally.skillCooldown;
+  switch (ally.classKey) {
+    case "destroyer":
+      fireAllyTorpedo(ally);
+      break;
+    case "cruiser":
+      activateOverdrive(ally, allyOverdrive);
+      break;
+    case "battleship":
+      scheduleAllyBarrage(ally);
+      break;
+  }
+}
+
 function fireTorpedo(player) {
   const baseAngle = Math.atan2(player.dir.y, player.dir.x);
   const angles =
@@ -81,6 +110,23 @@ function fireTorpedo(player) {
     spawnPlayerProjectile(
       player.x,
       player.y,
+      Math.cos(fireAngle),
+      Math.sin(fireAngle),
+      ProjectileType.torpedo.damage,
+      "torpedo",
+    );
+  }
+}
+
+function fireAllyTorpedo(ally) {
+  const baseAngle = Math.atan2(ally.dir.y, ally.dir.x);
+  const angles =
+    ally.torpedoMode === "wide" ? [-8, -4, 4, 8] : [-4, -2, 2, 4];
+  for (const spreadDegrees of angles) {
+    const fireAngle = baseAngle + spreadDegrees * (Math.PI / 180);
+    spawnPlayerProjectile(
+      ally.x,
+      ally.y,
       Math.cos(fireAngle),
       Math.sin(fireAngle),
       ProjectileType.torpedo.damage,
@@ -123,6 +169,34 @@ function scheduleBarrage(player) {
         delay: volleyIndex * VOLLEY_INTERVAL + turretIndex * SHOT_INTERVAL,
         dirX: player.dir.x,
         dirY: player.dir.y,
+        perpOffset,
+        fwdOffset,
+        reloadOnFire: isLastShot,
+      });
+    }
+  }
+}
+
+function scheduleAllyBarrage(ally) {
+  const totalTurrets = ally.turrets.length;
+  const spread = ally.hitboxShort * 0.8;
+  const fwdOffset = ally.hitboxLong * 0.45;
+  const VOLLEY_COUNT = 3;
+  const SHOT_INTERVAL = 80;
+  const VOLLEY_INTERVAL = 100;
+
+  for (let volleyIndex = 0; volleyIndex < VOLLEY_COUNT; volleyIndex++) {
+    for (let turretIndex = 0; turretIndex < totalTurrets; turretIndex++) {
+      const perpOffset =
+        totalTurrets > 1
+          ? (turretIndex / (totalTurrets - 1) - 0.5) * spread
+          : 0;
+      const isLastShot =
+        volleyIndex === VOLLEY_COUNT - 1 && turretIndex === totalTurrets - 1;
+      pendingAllyBarrage.push({
+        delay: volleyIndex * VOLLEY_INTERVAL + turretIndex * SHOT_INTERVAL,
+        dirX: ally.dir.x,
+        dirY: ally.dir.y,
         perpOffset,
         fwdOffset,
         reloadOnFire: isLastShot,
@@ -177,8 +251,8 @@ function scheduleEnemyBarrage(enemy) {
 
 function launchPlanes() {
   const player = playerMod.player;
-  const enemy = enemyMod.enemy;
-  if (!player || !enemy) return;
+  const target = enemyMod.enemy ?? enemyMod.waveEnemies.find((waveEnemy) => waveEnemy.health > 0) ?? null;
+  if (!player || !target) return;
   const isTorpedo = player.acMode === "torpedoPlanes";
   const timer = isTorpedo ? player.torpedoSkillTimer : player.diveSkillTimer;
   if (timer > 0) return;
@@ -196,7 +270,7 @@ function launchPlanes() {
       type: planeType,
       startX: player.x,
       startY: player.y,
-      target: enemy,
+      target,
       carrier: player,
       dirX: Math.cos(angle),
       dirY: Math.sin(angle),
@@ -213,10 +287,48 @@ function launchPlanes() {
   }
 }
 
-function launchEnemyPlanes() {
-  const player = playerMod.player;
+function launchAllyPlanes() {
+  const ally = enemyMod.ally;
+  const target = enemyMod.enemy ?? enemyMod.waveEnemies.find((waveEnemy) => waveEnemy.health > 0) ?? null;
+  if (!ally || !target) return;
+  const isTorpedo = ally.acMode === "torpedoPlanes";
+  const timer = isTorpedo ? ally.torpedoSkillTimer : ally.diveSkillTimer;
+  if (timer > 0) return;
+  const available = isTorpedo
+    ? ally.torpedoPlanesReady
+    : ally.diveBombersReady;
+  if (available <= 0) return;
+  const planeType = isTorpedo ? "torpedo" : "dive";
+  const launchCount = Math.min(available, 2);
+  const baseAngle = Math.atan2(ally.dir.y, ally.dir.x);
+  const spreads = launchCount === 2 ? [-10, 10] : [0];
+  for (const spreadDeg of spreads) {
+    const angle = baseAngle + spreadDeg * (Math.PI / 180);
+    planePending.push({
+      type: planeType,
+      startX: ally.x,
+      startY: ally.y,
+      target,
+      carrier: ally,
+      dirX: Math.cos(angle),
+      dirY: Math.sin(angle),
+    });
+  }
+  if (isTorpedo) {
+    ally.torpedoPlanesReady -= launchCount;
+    if (ally.torpedoPlanesReady <= 0)
+      ally.torpedoSkillTimer = ally.skillCooldown;
+  } else {
+    ally.diveBombersReady -= launchCount;
+    if (ally.diveBombersReady <= 0) ally.diveSkillTimer = ally.skillCooldown;
+  }
+}
+
+export function launchEnemyPlanes(targetShip) {
   const enemy = enemyMod.enemy;
-  if (!player || !enemy) return;
+  if (!enemy) return;
+  const target = targetShip ?? playerMod.player;
+  if (!target) return;
   const isTorpedo = enemy.acMode === "torpedoPlanes";
   const timer = isTorpedo ? enemy.torpedoSkillTimer : enemy.diveSkillTimer;
   if (timer > 0) return;
@@ -234,7 +346,7 @@ function launchEnemyPlanes() {
       type: planeType,
       startX: enemy.x,
       startY: enemy.y,
-      target: player,
+      target,
       carrier: enemy,
       dirX: Math.cos(angle),
       dirY: Math.sin(angle),
@@ -334,11 +446,45 @@ export function updateEnemySkills(dt) {
   }
 }
 
+export function updateAllySkills(dt) {
+  tickOverdrive(dt, allyOverdrive, enemyMod.ally);
+
+  for (let index = pendingAllyBarrage.length - 1; index >= 0; index--) {
+    pendingAllyBarrage[index].delay -= dt;
+    if (pendingAllyBarrage[index].delay <= 0) {
+      const shot = pendingAllyBarrage.splice(index, 1)[0];
+      const ally = enemyMod.ally;
+      if (ally) {
+        const perpX = -ally.dir.y * shot.perpOffset;
+        const perpY = ally.dir.x * shot.perpOffset;
+        const fwdX = ally.dir.x * shot.fwdOffset;
+        const fwdY = ally.dir.y * shot.fwdOffset;
+        spawnPlayerProjectile(
+          ally.x + perpX + fwdX,
+          ally.y + perpY + fwdY,
+          shot.dirX,
+          shot.dirY,
+          ally.damage,
+          "basic",
+        );
+        if (shot.reloadOnFire && ally.turrets) {
+          for (const turret of ally.turrets) {
+            turret.roundsLeft = turret.maxRounds;
+            turret.timer = 0;
+          }
+        }
+      }
+    }
+  }
+}
+
 export function resetSkills() {
   pendingBarrage.length = 0;
   pendingEnemyBarrage.length = 0;
+  pendingAllyBarrage.length = 0;
   playerOverdrive.phase = "none";
   enemyOverdrive.phase = "none";
+  allyOverdrive.phase = "none";
 }
 
 export function toggleAcMode() {
@@ -360,5 +506,16 @@ export function toggleEnemyAcMode() {
       enemy.acMode === "torpedoPlanes" ? "diveBombers" : "torpedoPlanes";
   } else if (enemy.classKey === "destroyer") {
     enemy.torpedoMode = enemy.torpedoMode === "wide" ? "close" : "wide";
+  }
+}
+
+export function toggleAllyAcMode() {
+  const ally = enemyMod.ally;
+  if (!ally) return;
+  if (ally.classKey === "carrier") {
+    ally.acMode =
+      ally.acMode === "torpedoPlanes" ? "diveBombers" : "torpedoPlanes";
+  } else if (ally.classKey === "destroyer") {
+    ally.torpedoMode = ally.torpedoMode === "wide" ? "close" : "wide";
   }
 }

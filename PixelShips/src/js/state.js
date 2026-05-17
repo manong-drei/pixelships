@@ -1,9 +1,14 @@
 export const state = {
   gameState: "start",
+  mode: "pvp",
   playerClass: null,
+  player2Class: null,
   enemyClass: null,
   pendingClass: null,
   paused: false,
+  coopWave: 0,
+  coopTotalWaves: 3,
+  waveTransitionTimer: 0,
   stats: {
     p1ShotsFired: 0,
     p2ShotsFired: 0,

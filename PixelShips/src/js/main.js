@@ -2,11 +2,13 @@ import { canvas, ctx, mouse } from "./canvas.js";
 import { state } from "./state.js";
 import {
   drawStartScreen,
+  drawModeSelectScreen,
   drawSelectionScreen,
   drawWinScreen,
   drawGameOverScreen,
   drawPauseScreen,
   handleStartClick,
+  handleModeSelectClick,
   handleSelectionClick,
   handleEndClick,
   handlePauseClick,
@@ -24,10 +26,14 @@ import {
 import {
   triggerSkill,
   triggerEnemySkill,
+  triggerAllySkill,
   updateSkills,
   updateEnemySkills,
+  updateAllySkills,
   toggleAcMode,
   toggleEnemyAcMode,
+  toggleAllyAcMode,
+  launchEnemyPlanes,
   resetSkills,
 } from "./skills.js";
 import {
@@ -47,13 +53,19 @@ import {
   clearSplashes,
 } from "./effects.js";
 import { drawHUD } from "./ui.js";
+import { createAiState, updateAi } from "./ai.js";
 
 let lastTimestamp = 0;
 let prevGameState = null;
+let aiState = null;
 
 const BURST_INTERVAL_MS = 80;
 const playerBurstQueue = [];
 const enemyBurstQueue = [];
+const allyBurstQueue = [];
+
+const WAVE_ENEMY_POOL = ["destroyer", "cruiser", "battleship"];
+const WAVE_TRANSITION_MS = 2000;
 
 canvas.addEventListener("mousemove", (event) => {
   const canvasBounds = canvas.getBoundingClientRect();
@@ -71,8 +83,8 @@ canvas.addEventListener("click", (event) => {
   const mouseY = event.clientY - canvasBounds.top;
   if (state.paused) { handlePauseClick(mouseX, mouseY); return; }
   if (state.gameState === "start") handleStartClick(mouseX, mouseY);
-  else if (state.gameState === "selection")
-    handleSelectionClick(mouseX, mouseY);
+  else if (state.gameState === "modeSelect") handleModeSelectClick(mouseX, mouseY);
+  else if (state.gameState === "selection") handleSelectionClick(mouseX, mouseY);
   else if (state.gameState === "win" || state.gameState === "gameOver")
     handleEndClick(mouseX, mouseY);
 });
@@ -96,10 +108,16 @@ window.addEventListener("keydown", (event) => {
     if (event.code === "KeyE") triggerSkill();
     if (event.code === "KeyQ") toggleAcMode();
 
-    // Player 2
-    if (event.code === "Enter" || event.code === "Numpad5") fireEnemyAttack();
-    if (event.code === "KeyP" || event.code === "Numpad9") triggerEnemySkill();
-    if (event.code === "KeyO" || event.code === "Numpad7") toggleEnemyAcMode();
+    // Player 2 (human) — active in pvp and co-op, suppressed in pvc
+    if (state.mode === "pvp") {
+      if (event.code === "Enter" || event.code === "Numpad5") fireEnemyAttack();
+      if (event.code === "KeyP" || event.code === "Numpad9") triggerEnemySkill();
+      if (event.code === "KeyO" || event.code === "Numpad7") toggleEnemyAcMode();
+    } else if (state.mode === "coop") {
+      if (event.code === "Enter" || event.code === "Numpad5") fireAllyAttack();
+      if (event.code === "KeyP" || event.code === "Numpad9") triggerAllySkill();
+      if (event.code === "KeyO" || event.code === "Numpad7") toggleAllyAcMode();
+    }
   }
 });
 window.addEventListener("keyup", (event) => {
@@ -112,9 +130,10 @@ function fireBasicAttack() {
   if (!player) return;
 
   if (player.classKey === "carrier") {
-    if (!enemy || player.fireCooldown > 0) return;
-    const deltaX = enemy.x - player.x;
-    const deltaY = enemy.y - player.y;
+    const carrierTarget = state.mode === "coop" ? getNearestWaveEnemy(player) : enemy;
+    if (!carrierTarget || player.fireCooldown > 0) return;
+    const deltaX = carrierTarget.x - player.x;
+    const deltaY = carrierTarget.y - player.y;
     const distance = Math.hypot(deltaX, deltaY);
     if (distance > 500) return;
     player.fireCooldown = player.fireRate;
@@ -204,9 +223,167 @@ function fireEnemyAttack() {
   }
 }
 
+function fireAllyAttack() {
+  const ally = enemyMod.ally;
+  if (!ally) return;
+
+  if (ally.classKey === "carrier") {
+    const allyTarget = state.mode === "coop" ? getNearestWaveEnemy(ally) : enemyMod.enemy;
+    if (!allyTarget || ally.fireCooldown > 0) return;
+    const deltaX = allyTarget.x - ally.x;
+    const deltaY = allyTarget.y - ally.y;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (distance > 500) return;
+    ally.fireCooldown = ally.fireRate;
+    spawnPlayerProjectile(
+      ally.x,
+      ally.y,
+      deltaX / distance,
+      deltaY / distance,
+      ally.damage,
+      "basic",
+    );
+    return;
+  }
+
+  if (!ally.turrets?.some((t) => t.roundsLeft > 0)) return;
+  const totalTurrets = ally.turrets.length;
+  const spread = ally.hitboxShort * 0.8;
+  const fwdOffset = ally.hitboxLong * 0.45;
+  let shotIndex = 0;
+  for (let turretIndex = 0; turretIndex < totalTurrets; turretIndex++) {
+    const turret = ally.turrets[turretIndex];
+    if (turret.roundsLeft > 0) {
+      turret.roundsLeft--;
+      if (turret.timer <= 0) turret.timer = turret.cooldownMs;
+      const perpOffset =
+        totalTurrets > 1
+          ? (turretIndex / (totalTurrets - 1) - 0.5) * spread
+          : 0;
+      allyBurstQueue.push({
+        delay: shotIndex * BURST_INTERVAL_MS,
+        dirX: ally.dir.x,
+        dirY: ally.dir.y,
+        perpOffset,
+        fwdOffset,
+      });
+      shotIndex++;
+    }
+  }
+}
+
+function fireAiCarrierAttack(primaryTarget) {
+  const enemy = enemyMod.enemy;
+  if (!enemy || !primaryTarget) return;
+  if (enemy.fireCooldown > 0) return;
+  const deltaX = primaryTarget.x - enemy.x;
+  const deltaY = primaryTarget.y - enemy.y;
+  const distance = Math.hypot(deltaX, deltaY);
+  if (distance > 500) return;
+  enemy.fireCooldown = enemy.fireRate;
+  spawnEnemyProjectile(
+    enemy.x,
+    enemy.y,
+    deltaX / distance,
+    deltaY / distance,
+    enemy.damage,
+    "basic",
+  );
+}
+
+function getNearestWaveEnemy(fromShip) {
+  let nearest = null;
+  let nearestDist = Infinity;
+  for (const waveEnemy of enemyMod.waveEnemies) {
+    if (waveEnemy.health <= 0) continue;
+    const dist = Math.hypot(waveEnemy.x - fromShip.x, waveEnemy.y - fromShip.y);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = waveEnemy;
+    }
+  }
+  return nearest;
+}
+
+function fireWaveEnemyAttack(waveEnemy) {
+  if (!waveEnemy.turrets?.some((turret) => turret.roundsLeft > 0)) return;
+  const totalTurrets = waveEnemy.turrets.length;
+  const spread = waveEnemy.hitboxShort * 0.8;
+  const fwdOffset = waveEnemy.hitboxLong * 0.45;
+  let shotIndex = 0;
+  for (let turretIndex = 0; turretIndex < totalTurrets; turretIndex++) {
+    const turret = waveEnemy.turrets[turretIndex];
+    if (turret.roundsLeft > 0) {
+      turret.roundsLeft--;
+      if (turret.timer <= 0) turret.timer = turret.cooldownMs;
+      const perpOffset =
+        totalTurrets > 1
+          ? (turretIndex / (totalTurrets - 1) - 0.5) * spread
+          : 0;
+      enemyBurstQueue.push({
+        delay: shotIndex * BURST_INTERVAL_MS,
+        dirX: waveEnemy.dir.x,
+        dirY: waveEnemy.dir.y,
+        perpOffset,
+        fwdOffset,
+        sourceShip: waveEnemy,
+      });
+      shotIndex++;
+    }
+  }
+}
+
+function spawnNextWave() {
+  state.coopWave++;
+  const count = state.coopWave;
+  const classes = Array.from({ length: count }, () =>
+    WAVE_ENEMY_POOL[Math.floor(Math.random() * WAVE_ENEMY_POOL.length)]
+  );
+  const padding = canvas.height * 0.15;
+  const yPositions =
+    count === 1
+      ? [canvas.height / 2]
+      : Array.from({ length: count }, (_, i) =>
+          padding + ((canvas.height - padding * 2) / (count - 1)) * i
+        );
+  enemyMod.initWave(classes, yPositions);
+  enemyBurstQueue.length = 0;
+}
+
+function drawWaveTransitionOverlay() {
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = `bold ${Math.floor(canvas.width * 0.06)}px monospace`;
+  ctx.fillText(`WAVE ${state.coopWave + 1}`, canvas.width / 2, canvas.height * 0.42);
+
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = `bold ${Math.floor(canvas.width * 0.025)}px monospace`;
+  ctx.fillText("GET READY!", canvas.width / 2, canvas.height * 0.56);
+
+  ctx.textBaseline = "alphabetic";
+}
+
 function initGame() {
   playerMod.initPlayer(state.playerClass);
-  enemyMod.initEnemy(state.enemyClass);
+
+  if (state.mode === "coop") {
+    enemyMod.initAlly(state.player2Class);
+    enemyMod.clearWaveEnemies();
+    state.coopWave = 0;
+    state.waveTransitionTimer = 0;
+    spawnNextWave();
+    aiState = null;
+  } else {
+    enemyMod.initEnemy(state.enemyClass, state.mode !== "pvp");
+    enemyMod.clearWaveEnemies();
+    aiState = state.mode !== "pvp" ? createAiState() : null;
+  }
+
   clearProjectiles();
   clearPlanes();
   clearExplosions();
@@ -214,6 +391,7 @@ function initGame() {
   resetSkills();
   playerBurstQueue.length = 0;
   enemyBurstQueue.length = 0;
+  allyBurstQueue.length = 0;
   state.paused = false;
   state.stats.p1ShotsFired = 0;
   state.stats.p2ShotsFired = 0;
@@ -243,6 +421,7 @@ function drawOcean() {
 function tickBurstQueues(dt) {
   const player = playerMod.player;
   const enemy = enemyMod.enemy;
+  const ally = enemyMod.ally;
 
   for (let index = playerBurstQueue.length - 1; index >= 0; index--) {
     playerBurstQueue[index].delay -= dt;
@@ -269,17 +448,39 @@ function tickBurstQueues(dt) {
     enemyBurstQueue[index].delay -= dt;
     if (enemyBurstQueue[index].delay <= 0) {
       const shot = enemyBurstQueue.splice(index, 1)[0];
-      if (enemy) {
-        const perpX = -enemy.dir.y * shot.perpOffset;
-        const perpY = enemy.dir.x * shot.perpOffset;
-        const fwdX = enemy.dir.x * shot.fwdOffset;
-        const fwdY = enemy.dir.y * shot.fwdOffset;
+      const source = shot.sourceShip ?? enemy;
+      if (source && source.health > 0) {
+        const perpX = -source.dir.y * shot.perpOffset;
+        const perpY = source.dir.x * shot.perpOffset;
+        const fwdX = source.dir.x * shot.fwdOffset;
+        const fwdY = source.dir.y * shot.fwdOffset;
         spawnEnemyProjectile(
-          enemy.x + perpX + fwdX,
-          enemy.y + perpY + fwdY,
+          source.x + perpX + fwdX,
+          source.y + perpY + fwdY,
           shot.dirX,
           shot.dirY,
-          enemy.damage,
+          source.damage,
+          "basic",
+        );
+      }
+    }
+  }
+
+  for (let index = allyBurstQueue.length - 1; index >= 0; index--) {
+    allyBurstQueue[index].delay -= dt;
+    if (allyBurstQueue[index].delay <= 0) {
+      const shot = allyBurstQueue.splice(index, 1)[0];
+      if (ally) {
+        const perpX = -ally.dir.y * shot.perpOffset;
+        const perpY = ally.dir.x * shot.perpOffset;
+        const fwdX = ally.dir.x * shot.fwdOffset;
+        const fwdY = ally.dir.y * shot.fwdOffset;
+        spawnPlayerProjectile(
+          ally.x + perpX + fwdX,
+          ally.y + perpY + fwdY,
+          shot.dirX,
+          shot.dirY,
+          ally.damage,
           "basic",
         );
       }
@@ -292,14 +493,100 @@ function update(dt) {
     if (prevGameState !== "playing") initGame();
     if (state.paused) return;
     state.stats.matchTimeMs += dt;
+
     playerMod.updatePlayer(dt);
     if (playerMod.player?.classKey === "carrier") fireBasicAttack();
-    enemyMod.updateEnemy(dt);
-    if (enemyMod.enemy?.classKey === "carrier") fireEnemyAttack();
+
+    if (state.mode === "pvp") {
+      enemyMod.updateEnemy(dt);
+      if (enemyMod.enemy?.classKey === "carrier") fireEnemyAttack();
+    } else if (state.mode === "coop") {
+      // Wave transition countdown
+      if (state.waveTransitionTimer > 0) {
+        state.waveTransitionTimer -= dt;
+        if (state.waveTransitionTimer <= 0 && state.coopWave < state.coopTotalWaves) {
+          spawnNextWave();
+        }
+      }
+
+      // Wave enemy AI (skipped while transition overlay is showing)
+      if (state.waveTransitionTimer <= 0) {
+        const liveTargets = [];
+        if (playerMod.player && playerMod.player.health > 0) liveTargets.push(playerMod.player);
+        if (enemyMod.ally && enemyMod.ally.health > 0) liveTargets.push(enemyMod.ally);
+
+        for (const waveEnemy of enemyMod.waveEnemies) {
+          if (waveEnemy.health <= 0) continue;
+          if (liveTargets.length > 0) {
+            const aiResult = updateAi(waveEnemy, liveTargets, waveEnemy.aiState, dt);
+            enemyMod.updateWaveShipWithInput(waveEnemy, aiResult.moveX, aiResult.moveY, dt);
+            waveEnemy.dir.x = aiResult.aimX;
+            waveEnemy.dir.y = aiResult.aimY;
+            if (aiResult.fire) fireWaveEnemyAttack(waveEnemy);
+            // useSkill intentionally ignored — wave enemies fire turrets only
+          } else {
+            enemyMod.updateWaveShipWithInput(waveEnemy, 0, 0, dt);
+          }
+        }
+
+        // Wave clear check
+        if (
+          enemyMod.waveEnemies.length > 0 &&
+          enemyMod.waveEnemies.every((waveEnemy) => waveEnemy.health <= 0)
+        ) {
+          if (state.coopWave >= state.coopTotalWaves) {
+            state.gameState = "win";
+          } else {
+            state.waveTransitionTimer = WAVE_TRANSITION_MS;
+          }
+        }
+      }
+
+      // P2 ally (human keyboard)
+      if (enemyMod.ally) {
+        enemyMod.updateAlly(dt);
+        if (enemyMod.ally.classKey === "carrier") fireAllyAttack();
+        updateAllySkills(dt);
+      }
+    } else {
+      // pvc — AI controls single enemy
+      const liveTargets = [];
+      if (playerMod.player && playerMod.player.health > 0) liveTargets.push(playerMod.player);
+
+      if (liveTargets.length > 0 && enemyMod.enemy && aiState) {
+        const ai = updateAi(enemyMod.enemy, liveTargets, aiState, dt);
+        enemyMod.updateEnemyWithInput(ai.moveX, ai.moveY, dt);
+        if (enemyMod.enemy) {
+          enemyMod.enemy.dir.x = ai.aimX;
+          enemyMod.enemy.dir.y = ai.aimY;
+        }
+        if (ai.fire) {
+          if (enemyMod.enemy?.classKey === "carrier") {
+            fireAiCarrierAttack(liveTargets[0]);
+          } else {
+            fireEnemyAttack();
+          }
+        }
+        if (ai.useSkill) {
+          if (enemyMod.enemy?.classKey === "carrier") {
+            const skillTarget = liveTargets.reduce((lowest, target) =>
+              target.health < lowest.health ? target : lowest
+            );
+            launchEnemyPlanes(skillTarget);
+          } else {
+            triggerEnemySkill();
+          }
+        }
+        if (ai.toggleMode) toggleEnemyAcMode();
+      } else if (enemyMod.enemy) {
+        enemyMod.updateEnemyWithInput(0, 0, dt);
+      }
+    }
+
     tickBurstQueues(dt);
     updateProjectiles(dt);
     updateSkills(dt);
-    updateEnemySkills(dt);
+    if (state.mode !== "coop") updateEnemySkills(dt);
     updatePlanes(dt);
     updateEnemyPlanes(dt);
     checkCollisions();
@@ -314,6 +601,8 @@ function draw() {
 
   if (state.gameState === "start") {
     drawStartScreen(titleBackgroundImage);
+  } else if (state.gameState === "modeSelect") {
+    drawModeSelectScreen();
   } else if (state.gameState === "selection") {
     drawSelectionScreen();
   } else if (state.gameState === "playing") {
@@ -322,20 +611,36 @@ function draw() {
     drawPlanes();
     drawEnemyPlanes();
     playerMod.drawPlayer();
-    enemyMod.drawEnemy();
+    if (state.mode === "coop") {
+      enemyMod.drawWaveEnemies();
+      if (enemyMod.ally) enemyMod.drawAlly();
+    } else {
+      enemyMod.drawEnemy();
+    }
     drawExplosions();
     drawSplashes();
     drawHUD();
+    if (state.mode === "coop" && state.waveTransitionTimer > 0) drawWaveTransitionOverlay();
     if (state.paused) drawPauseScreen();
   } else if (state.gameState === "win") {
     drawOcean();
     playerMod.drawPlayer();
-    enemyMod.drawEnemy();
+    if (state.mode === "coop") {
+      enemyMod.drawWaveEnemies();
+      if (enemyMod.ally) enemyMod.drawAlly();
+    } else {
+      enemyMod.drawEnemy();
+    }
     drawWinScreen();
   } else if (state.gameState === "gameOver") {
     drawOcean();
     playerMod.drawPlayer();
-    enemyMod.drawEnemy();
+    if (state.mode === "coop") {
+      enemyMod.drawWaveEnemies();
+      if (enemyMod.ally) enemyMod.drawAlly();
+    } else {
+      enemyMod.drawEnemy();
+    }
     drawGameOverScreen();
   }
 }
