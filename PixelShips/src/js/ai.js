@@ -1,16 +1,20 @@
 import { canvas } from "./canvas.js";
 import { playerProjectiles } from "./projectiles.js";
 
-const IDEAL_RANGE_FRAC    = 0.35;
-const MIN_RANGE_FRAC      = 0.15;
 const AIM_THRESHOLD_RAD   = 0.25;
-const TACTIC_CHANGE_MS_MIN = 1500;
-const TACTIC_CHANGE_MS_MAX = 3500;
 const DODGE_RANGE          = 300;
 const DODGE_DURATION_MS    = 800;
 const TORPEDO_ATTACK_RANGE = 300;
 const TORPEDO_AIM_RAD      = 0.52; // ~30 degrees
 const BARRAGE_ATTACK_RANGE = 400;
+
+// Per-class tactic personality: range fractions and how often the AI reconsiders its tactic
+const CLASS_PROFILES = {
+  destroyer:  { idealRangeFrac: 0.20, minRangeFrac: 0.07, tacticMinMs: 600,  tacticMaxMs: 1400 },
+  cruiser:    { idealRangeFrac: 0.35, minRangeFrac: 0.15, tacticMinMs: 1500, tacticMaxMs: 3500 },
+  battleship: { idealRangeFrac: 0.55, minRangeFrac: 0.30, tacticMinMs: 2500, tacticMaxMs: 5000 },
+  carrier:    { idealRangeFrac: 0.35, minRangeFrac: 0.15, tacticMinMs: 1500, tacticMaxMs: 3500 },
+};
 
 export function createAiState() {
   return {
@@ -30,8 +34,9 @@ export function updateAi(aiShip, targets, aiState, dt) {
     return { moveX: 0, moveY: 0, aimX: aiShip?.dir.x ?? 1, aimY: aiShip?.dir.y ?? 0, fire: false, useSkill: false, toggleMode: false };
   }
 
-  const idealRange = canvas.width * IDEAL_RANGE_FRAC;
-  const minRange   = canvas.width * MIN_RANGE_FRAC;
+  const profile    = CLASS_PROFILES[aiShip.classKey] ?? CLASS_PROFILES.cruiser;
+  const idealRange = canvas.width * profile.idealRangeFrac;
+  const minRange   = canvas.width * profile.minRangeFrac;
 
   // Primary target: nearest living
   const primaryTarget = nearestTarget(aiShip, targets);
@@ -86,7 +91,7 @@ export function updateAi(aiShip, targets, aiState, dt) {
     // --- Tactic state machine ---
     aiState.tacticTimer -= dt;
     if (aiState.tacticTimer <= 0) {
-      aiState.tacticTimer = TACTIC_CHANGE_MS_MIN + Math.random() * (TACTIC_CHANGE_MS_MAX - TACTIC_CHANGE_MS_MIN);
+      aiState.tacticTimer = profile.tacticMinMs + Math.random() * (profile.tacticMaxMs - profile.tacticMinMs);
       // Re-evaluate tactic based on distance
       if (aiState.tactic === "strafe") {
         // Randomly flip strafe direction
@@ -97,13 +102,13 @@ export function updateAi(aiShip, targets, aiState, dt) {
     // Forced tactic transitions based on distance
     if (aiState.tactic === "approach" && dist <= idealRange) {
       aiState.tactic = "strafe";
-      aiState.tacticTimer = TACTIC_CHANGE_MS_MIN + Math.random() * (TACTIC_CHANGE_MS_MAX - TACTIC_CHANGE_MS_MIN);
+      aiState.tacticTimer = profile.tacticMinMs + Math.random() * (profile.tacticMaxMs - profile.tacticMinMs);
     } else if (aiState.tactic === "strafe" && dist < minRange) {
       aiState.tactic = "retreat";
-      aiState.tacticTimer = TACTIC_CHANGE_MS_MIN + Math.random() * (TACTIC_CHANGE_MS_MAX - TACTIC_CHANGE_MS_MIN);
+      aiState.tacticTimer = profile.tacticMinMs + Math.random() * (profile.tacticMaxMs - profile.tacticMinMs);
     } else if (aiState.tactic === "retreat" && dist >= idealRange) {
       aiState.tactic = "approach";
-      aiState.tacticTimer = TACTIC_CHANGE_MS_MIN + Math.random() * (TACTIC_CHANGE_MS_MAX - TACTIC_CHANGE_MS_MIN);
+      aiState.tacticTimer = profile.tacticMinMs + Math.random() * (profile.tacticMaxMs - profile.tacticMinMs);
     }
 
     if (aiState.tactic === "approach") {

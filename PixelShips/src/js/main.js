@@ -304,6 +304,47 @@ function fireAiCarrierAttack(primaryTarget) {
   );
 }
 
+function clampShipToCanvas(ship) {
+  ship.x = Math.max(ship.width / 2, Math.min(canvas.width  - ship.width  / 2, ship.x));
+  ship.y = Math.max(ship.height / 2, Math.min(canvas.height - ship.height / 2, ship.y));
+}
+
+function resolveShipCollisions() {
+  const liveShips = [];
+  if (playerMod.player?.health > 0) liveShips.push(playerMod.player);
+  if (state.mode === "coop") {
+    if (enemyMod.ally?.health > 0) liveShips.push(enemyMod.ally);
+    for (const waveEnemy of enemyMod.waveEnemies) {
+      if (waveEnemy.health > 0) liveShips.push(waveEnemy);
+    }
+  } else if (enemyMod.enemy?.health > 0) {
+    liveShips.push(enemyMod.enemy);
+  }
+
+  for (let i = 0; i < liveShips.length; i++) {
+    for (let j = i + 1; j < liveShips.length; j++) {
+      const shipA = liveShips[i];
+      const shipB = liveShips[j];
+      const dx = shipB.x - shipA.x;
+      const dy = shipB.y - shipA.y;
+      const dist = Math.hypot(dx, dy);
+      const minDist = (shipA.hitboxLong + shipA.hitboxShort) / 4
+                    + (shipB.hitboxLong + shipB.hitboxShort) / 4;
+      if (dist > 0 && dist < minDist) {
+        const overlap = minDist - dist;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        shipA.x -= nx * overlap * 0.5;
+        shipA.y -= ny * overlap * 0.5;
+        shipB.x += nx * overlap * 0.5;
+        shipB.y += ny * overlap * 0.5;
+        clampShipToCanvas(shipA);
+        clampShipToCanvas(shipB);
+      }
+    }
+  }
+}
+
 function getNearestWaveEnemy(fromShip) {
   let nearest = null;
   let nearestDist = Infinity;
@@ -434,6 +475,16 @@ function drawOcean() {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
+}
+
+function drawBoundaryZone() {
+  const mx = canvas.width  * 0.08;
+  const my = canvas.height * 0.08;
+  ctx.fillStyle = "rgba(0, 0, 20, 0.28)";
+  ctx.fillRect(0,                    0,                    mx,              canvas.height);
+  ctx.fillRect(canvas.width - mx,    0,                    mx,              canvas.height);
+  ctx.fillRect(mx,                   0,                    canvas.width - 2 * mx, my);
+  ctx.fillRect(mx,                   canvas.height - my,   canvas.width - 2 * mx, my);
 }
 
 function tickBurstQueues(dt) {
@@ -603,6 +654,7 @@ function update(dt) {
       }
     }
 
+    resolveShipCollisions();
     tickBurstQueues(dt);
     updateProjectiles(dt);
     updateSkills(dt);
@@ -629,6 +681,7 @@ function draw() {
     drawSelectionScreen();
   } else if (state.gameState === "playing") {
     drawOcean();
+    drawBoundaryZone();
     drawProjectiles();
     drawPlanes();
     drawEnemyPlanes();
@@ -646,6 +699,7 @@ function draw() {
     if (state.paused) drawPauseScreen();
   } else if (state.gameState === "win") {
     drawOcean();
+    drawBoundaryZone();
     playerMod.drawPlayer();
     if (state.mode === "coop") {
       enemyMod.drawWaveEnemies();
@@ -656,6 +710,7 @@ function draw() {
     drawWinScreen();
   } else if (state.gameState === "gameOver") {
     drawOcean();
+    drawBoundaryZone();
     playerMod.drawPlayer();
     if (state.mode === "coop") {
       enemyMod.drawWaveEnemies();
