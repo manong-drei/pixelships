@@ -7,11 +7,13 @@ import {
   drawWinScreen,
   drawGameOverScreen,
   drawPauseScreen,
+  drawInstructionsScreen,
   handleStartClick,
   handleModeSelectClick,
   handleSelectionClick,
   handleEndClick,
   handlePauseClick,
+  handleInstructionsClick,
   updateCursor,
 } from "./screens.js";
 import * as playerMod from "./player.js";
@@ -83,6 +85,7 @@ canvas.addEventListener("click", (event) => {
   const mouseY = event.clientY - canvasBounds.top;
   if (state.paused) { handlePauseClick(mouseX, mouseY); return; }
   if (state.gameState === "start") handleStartClick(mouseX, mouseY);
+  else if (state.gameState === "instructions") handleInstructionsClick(mouseX, mouseY);
   else if (state.gameState === "modeSelect") handleModeSelectClick(mouseX, mouseY);
   else if (state.gameState === "selection") handleSelectionClick(mouseX, mouseY);
   else if (state.gameState === "win" || state.gameState === "gameOver")
@@ -102,21 +105,31 @@ window.addEventListener("keydown", (event) => {
   if (state.paused) return;
 
   if (state.gameState === "playing") {
+    const p1Alive = (playerMod.player?.health ?? 0) > 0;
+
     // Player 1
-    if (event.code === "Space" && playerMod.player?.classKey !== "carrier")
-      fireBasicAttack();
-    if (event.code === "KeyE") triggerSkill();
-    if (event.code === "KeyQ") toggleAcMode();
+    if (p1Alive) {
+      if (event.code === "Space" && playerMod.player.classKey !== "carrier")
+        fireBasicAttack();
+      if (event.code === "KeyE") triggerSkill();
+      if (event.code === "KeyQ") toggleAcMode();
+    }
 
     // Player 2 (human) — active in pvp and co-op, suppressed in pvc
     if (state.mode === "pvp") {
-      if (event.code === "Enter" || event.code === "Numpad5") fireEnemyAttack();
-      if (event.code === "KeyP" || event.code === "Numpad9") triggerEnemySkill();
-      if (event.code === "KeyO" || event.code === "Numpad7") toggleEnemyAcMode();
+      const p2Alive = (enemyMod.enemy?.health ?? 0) > 0;
+      if (p2Alive) {
+        if (event.code === "Enter" || event.code === "Numpad5") fireEnemyAttack();
+        if (event.code === "KeyP" || event.code === "Numpad9") triggerEnemySkill();
+        if (event.code === "KeyO" || event.code === "Numpad7") toggleEnemyAcMode();
+      }
     } else if (state.mode === "coop") {
-      if (event.code === "Enter" || event.code === "Numpad5") fireAllyAttack();
-      if (event.code === "KeyP" || event.code === "Numpad9") triggerAllySkill();
-      if (event.code === "KeyO" || event.code === "Numpad7") toggleAllyAcMode();
+      const allyAlive = (enemyMod.ally?.health ?? 0) > 0;
+      if (allyAlive) {
+        if (event.code === "Enter" || event.code === "Numpad5") fireAllyAttack();
+        if (event.code === "KeyP" || event.code === "Numpad9") triggerAllySkill();
+        if (event.code === "KeyO" || event.code === "Numpad7") toggleAllyAcMode();
+      }
     }
   }
 });
@@ -127,7 +140,7 @@ window.addEventListener("keyup", (event) => {
 function fireBasicAttack() {
   const player = playerMod.player;
   const enemy = enemyMod.enemy;
-  if (!player) return;
+  if (!player || player.health <= 0) return;
 
   if (player.classKey === "carrier") {
     const carrierTarget = state.mode === "coop" ? getNearestWaveEnemy(player) : enemy;
@@ -177,7 +190,7 @@ function fireBasicAttack() {
 function fireEnemyAttack() {
   const player = playerMod.player;
   const enemy = enemyMod.enemy;
-  if (!enemy || !player) return;
+  if (!enemy || enemy.health <= 0 || !player) return;
 
   if (enemy.classKey === "carrier") {
     if (enemy.fireCooldown > 0) return;
@@ -225,7 +238,7 @@ function fireEnemyAttack() {
 
 function fireAllyAttack() {
   const ally = enemyMod.ally;
-  if (!ally) return;
+  if (!ally || ally.health <= 0) return;
 
   if (ally.classKey === "carrier") {
     const allyTarget = state.mode === "coop" ? getNearestWaveEnemy(ally) : enemyMod.enemy;
@@ -373,6 +386,11 @@ function initGame() {
 
   if (state.mode === "coop") {
     enemyMod.initAlly(state.player2Class);
+    // Place both players side by side on the left
+    playerMod.player.x = canvas.width * 0.15;
+    playerMod.player.y = canvas.height * 0.37;
+    enemyMod.ally.x    = canvas.width * 0.15;
+    enemyMod.ally.y    = canvas.height * 0.63;
     enemyMod.clearWaveEnemies();
     state.coopWave = 0;
     state.waveTransitionTimer = 0;
@@ -494,8 +512,10 @@ function update(dt) {
     if (state.paused) return;
     state.stats.matchTimeMs += dt;
 
-    playerMod.updatePlayer(dt);
-    if (playerMod.player?.classKey === "carrier") fireBasicAttack();
+    if (playerMod.player?.health > 0) {
+      playerMod.updatePlayer(dt);
+      if (playerMod.player.classKey === "carrier") fireBasicAttack();
+    }
 
     if (state.mode === "pvp") {
       enemyMod.updateEnemy(dt);
@@ -543,7 +563,7 @@ function update(dt) {
       }
 
       // P2 ally (human keyboard)
-      if (enemyMod.ally) {
+      if (enemyMod.ally && enemyMod.ally.health > 0) {
         enemyMod.updateAlly(dt);
         if (enemyMod.ally.classKey === "carrier") fireAllyAttack();
         updateAllySkills(dt);
@@ -553,7 +573,7 @@ function update(dt) {
       const liveTargets = [];
       if (playerMod.player && playerMod.player.health > 0) liveTargets.push(playerMod.player);
 
-      if (liveTargets.length > 0 && enemyMod.enemy && aiState) {
+      if (liveTargets.length > 0 && enemyMod.enemy && enemyMod.enemy.health > 0 && aiState) {
         const ai = updateAi(enemyMod.enemy, liveTargets, aiState, dt);
         enemyMod.updateEnemyWithInput(ai.moveX, ai.moveY, dt);
         if (enemyMod.enemy) {
@@ -601,6 +621,8 @@ function draw() {
 
   if (state.gameState === "start") {
     drawStartScreen(titleBackgroundImage);
+  } else if (state.gameState === "instructions") {
+    drawInstructionsScreen();
   } else if (state.gameState === "modeSelect") {
     drawModeSelectScreen();
   } else if (state.gameState === "selection") {

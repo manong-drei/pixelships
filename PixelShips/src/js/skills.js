@@ -37,7 +37,7 @@ const allyOverdrive = {
 
 export function triggerSkill() {
   const player = playerMod.player;
-  if (!player) return;
+  if (!player || player.health <= 0) return;
   if (player.classKey === "carrier") {
     launchPlanes();
     return;
@@ -59,7 +59,7 @@ export function triggerSkill() {
 
 export function triggerEnemySkill() {
   const enemy = enemyMod.enemy;
-  if (!enemy) return;
+  if (!enemy || enemy.health <= 0) return;
   if (enemy.classKey === "carrier") {
     launchEnemyPlanes();
     return;
@@ -81,7 +81,7 @@ export function triggerEnemySkill() {
 
 export function triggerAllySkill() {
   const ally = enemyMod.ally;
-  if (!ally) return;
+  if (!ally || ally.health <= 0) return;
   if (ally.classKey === "carrier") {
     launchAllyPlanes();
     return;
