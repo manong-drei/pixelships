@@ -52,8 +52,24 @@ export function updateShip(ship, moveX, moveY, dt) {
     ship.dir.y = moveY / moveLength;
   }
 
-  ship.x += moveX * ship.speed;
-  ship.y += moveY * ship.speed;
+  // Slow ships down inside the boundary zone (8% margin from each edge)
+  const marginX    = canvas.width  * 0.08;
+  const marginY    = canvas.height * 0.08;
+  const halfW      = ship.width  / 2;
+  const halfH      = ship.height / 2;
+  const edgeLeft   = ship.x - halfW;
+  const edgeRight  = canvas.width  - ship.x - halfW;
+  const edgeTop    = ship.y - halfH;
+  const edgeBottom = canvas.height - ship.y - halfH;
+  const speedMult  = Math.min(
+    edgeLeft   < marginX ? (0.25 + 0.75 * Math.max(0, edgeLeft)   / marginX) : 1,
+    edgeRight  < marginX ? (0.25 + 0.75 * Math.max(0, edgeRight)  / marginX) : 1,
+    edgeTop    < marginY ? (0.25 + 0.75 * Math.max(0, edgeTop)    / marginY) : 1,
+    edgeBottom < marginY ? (0.25 + 0.75 * Math.max(0, edgeBottom) / marginY) : 1,
+  );
+
+  ship.x += moveX * ship.speed * speedMult;
+  ship.y += moveY * ship.speed * speedMult;
 
   const halfWidth  = ship.width  / 2;
   const halfHeight = ship.height / 2;

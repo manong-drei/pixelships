@@ -88,3 +88,19 @@ const bombSprite = loadImage("assets/projectiles/bomb.png");
 export function getBombSprite() {
   return bombSprite;
 }
+
+const SPLASH_PATHS = {
+  destroyer: "assets/ships/destroyer/Destroyer_splash.png",
+  cruiser: "assets/ships/cruiser/Cruiser_splash.png",
+  battleship: "assets/ships/battleship/Battleship_splash.png",
+  carrier: "assets/ships/carrier/Carrier_splash.png",
+};
+
+const splashImages = {};
+for (const [key, src] of Object.entries(SPLASH_PATHS)) {
+  splashImages[key] = loadImage(src);
+}
+
+export function getSplashSprite(classKey) {
+  return splashImages[classKey] ?? null;
+}
