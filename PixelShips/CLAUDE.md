@@ -36,6 +36,19 @@ State transitions are driven by `state.gameState` (in `state.js`). The loop chec
 
 In `"coop"` mode `enemy` is always `null`. The opponents are stored in `enemyMod.waveEnemies[]`.
 
+### Selection screen flow
+
+The selection screen is shared across all ship-pick turns. The active turn is derived from state — no separate `gameState` value:
+
+| Condition | Turn |
+|---|---|
+| `state.playerClass === null` | P1 picks |
+| `mode === "coop" && state.player2Class === null` | P2 (co-op) picks |
+| `mode === "pvc" && state.enemyClass === null` | Player picks CPU's ship |
+| otherwise | P2 (PvP) picks |
+
+In `"pvc"` mode, after P1 locks in, the screen transitions to the CPU-pick phase (amber header, "CHOOSE CPU'S SHIP") instead of starting the game immediately. A **Randomize** button is shown during this phase to pick and start instantly. The **Lock In** / **Battle!** button appears directly on the selected card, not in a separate bottom button.
+
 ### Module responsibilities
 
 | Module | Owns | Does NOT own |
@@ -45,7 +58,7 @@ In `"coop"` mode `enemy` is always `null`. The opponents are stored in `enemyMod
 | `shipConfig.js` | All ship stats (hp, speed, damage, rates, cooldowns, turretSpec) | No objects |
 | `player.js` | `player` object, P1 keyboard state (`keys`), movement, drawing | Firing (main.js fires on Space) |
 | `enemy.js` | `enemy` (P2/CPU), `ally` (co-op P2), `waveEnemies[]`, P2 keyboard state, movement, drawing | Firing (main.js), AI logic |
-| `ai.js` | `createAiState()`, `updateAi()` — 4-tactic movement AI, returns move/aim/fire/skill decisions | Ship state, firing |
+| `ai.js` | `createAiState()`, `updateAi()` — 4-tactic movement AI, returns move/aim/fire/skill decisions; `AI_HEALTH_MULT`, `AI_DAMAGE_MULT` constants | Ship state, firing |
 | `projectiles.js` | Both projectile arrays, movement, drawing | Collision |
 | `collision.js` | AABB hit detection, writes health, sets win/gameOver; branches on mode | No drawing |
 | `skills.js` | Skill dispatch, barrage queue, torpedo/AC mode toggle, ally skill variants | Plane flight paths |
@@ -148,7 +161,7 @@ Carrier planes launched by P1 or ally in co-op target the nearest live wave enem
 
 ### AI health and damage multipliers
 
-Wave enemies and the CPU enemy in PvC have health and damage reduced to **60%** of base values (`AI_HEALTH_MULT = 0.6`, `AI_DAMAGE_MULT = 0.6`), applied in `enemy.js` at ship creation time.
+Wave enemies and the CPU enemy in PvC have health and damage reduced by multipliers defined at the top of `ai.js` (`AI_HEALTH_MULT`, `AI_DAMAGE_MULT`) and exported to `enemy.js`, where they are applied at ship creation time. Edit those two constants in `ai.js` to tune AI difficulty.
 
 ### Adding a new ship class
 

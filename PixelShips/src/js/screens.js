@@ -3,6 +3,7 @@ import { state } from "./state.js";
 import { shipConfig } from "./shipConfig.js";
 import { player } from "./player.js";
 import { enemy } from "./enemy.js";
+import { getSplashSprite } from "./assets.js";
 
 const CLASS_KEYS = Object.keys(shipConfig);
 
@@ -34,12 +35,12 @@ function randomClass() {
 }
 
 function getCardLayout() {
-  const cardWidth = canvas.width * 0.2;
-  const cardHeight = canvas.height * 0.58;
-  const gap = canvas.width * 0.033;
+  const cardWidth = canvas.width * 0.215;
+  const cardHeight = canvas.height * 0.73;
+  const gap = canvas.width * 0.027;
   const totalWidth = 4 * cardWidth + 3 * gap;
   const startCenterX = (canvas.width - totalWidth) / 2 + cardWidth / 2;
-  const centerY = canvas.height * 0.48;
+  const centerY = canvas.height * 0.545;
   return CLASS_KEYS.map((key, index) => ({
     key,
     centerX: startCenterX + index * (cardWidth + gap),
@@ -79,28 +80,61 @@ export function drawStartScreen(titleBg) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  drawTitleText("Pixel Ships");
+  if (titleLogoImage.complete && titleLogoImage.naturalWidth > 0) {
+    const logoW = canvas.width * 0.45;
+    const logoH = logoW / 3;
+    const logoX = (canvas.width - logoW) / 2;
+    const logoY = canvas.height * 0.28 - logoH / 2;
+    ctx.drawImage(titleLogoImage, logoX, logoY, logoW, logoH);
+  } else {
+    drawTitleText("Pacific Clash");
 
-  const subtitleSize = Math.max(8, Math.floor(canvas.width * 0.015));
-  ctx.font = `${subtitleSize}px "Press Start 2P"`;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  ctx.fillText(
-    "WW2 Naval Battle",
-    canvas.width / 2 + 2,
-    canvas.height * 0.44 + 2,
+    const subtitleSize = Math.max(8, Math.floor(canvas.width * 0.015));
+    ctx.font = `${subtitleSize}px "Press Start 2P"`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillText(
+      "WW2 Naval Battle",
+      canvas.width / 2 + 2,
+      canvas.height * 0.44 + 2,
+    );
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("WW2 Naval Battle", canvas.width / 2, canvas.height * 0.44);
+  }
+
+  drawButton(
+    canvas.width / 2,
+    canvas.height * 0.55,
+    220,
+    54,
+    "PLAY",
+    "#2775e3",
   );
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillText("WW2 Naval Battle", canvas.width / 2, canvas.height * 0.44);
-
-  drawButton(canvas.width / 2, canvas.height * 0.55, 220, 54, "PLAY",        "#2775e3");
-  drawButton(canvas.width / 2, canvas.height * 0.67, 220, 54, "HOW TO PLAY", "#0f766e");
-  drawButton(canvas.width / 2, canvas.height * 0.79, 220, 54, "QUIT",        "#566270");
+  drawButton(
+    canvas.width / 2,
+    canvas.height * 0.67,
+    220,
+    54,
+    "HOW TO PLAY",
+    "#0f766e",
+  );
+  drawButton(
+    canvas.width / 2,
+    canvas.height * 0.79,
+    220,
+    54,
+    "QUIT",
+    "#566270",
+  );
 }
 
 export function drawModeSelectScreen() {
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   const titleSize = Math.max(14, Math.floor(canvas.width * 0.025));
   ctx.font = `${titleSize}px "Press Start 2P"`;
@@ -116,38 +150,93 @@ export function drawModeSelectScreen() {
   const totalW = 3 * buttonW + 2 * gap;
   const startX = (canvas.width - totalW) / 2 + buttonW / 2;
 
-  drawButton(startX,               buttonY, buttonW, buttonH, "1P VS CPU", "#2775e3");
-  drawButton(startX + buttonW + gap, buttonY, buttonW, buttonH, "CO-OP",    "#9333ea");
-  drawButton(startX + 2 * (buttonW + gap), buttonY, buttonW, buttonH, "PVP", "#0f766e");
+  drawButton(startX, buttonY, buttonW, buttonH, "1P VS CPU", "#2775e3");
+  drawButton(
+    startX + buttonW + gap,
+    buttonY,
+    buttonW,
+    buttonH,
+    "CO-OP",
+    "#9333ea",
+  );
+  drawButton(
+    startX + 2 * (buttonW + gap),
+    buttonY,
+    buttonW,
+    buttonH,
+    "PVP",
+    "#0f766e",
+  );
 
   const descSize = Math.max(7, Math.floor(canvas.width * 0.011));
   ctx.font = `${descSize}px "Press Start 2P"`;
   ctx.fillStyle = "#475569";
   ctx.textAlign = "center";
-  ctx.fillText("1 human vs AI",   startX,                         buttonY + buttonH / 2 + 20);
-  ctx.fillText("2 humans vs AI",  startX + buttonW + gap,          buttonY + buttonH / 2 + 20);
-  ctx.fillText("2 humans",        startX + 2 * (buttonW + gap),    buttonY + buttonH / 2 + 20);
+  ctx.fillText("1 human vs AI", startX, buttonY + buttonH / 2 + 20);
+  ctx.fillText(
+    "2 humans vs AI",
+    startX + buttonW + gap,
+    buttonY + buttonH / 2 + 20,
+  );
+  ctx.fillText(
+    "2 humans",
+    startX + 2 * (buttonW + gap),
+    buttonY + buttonH / 2 + 20,
+  );
 
-  drawButton(canvas.width * 0.12, canvas.height * 0.82, 140, 44, "BACK", "#475569");
+  drawButton(
+    canvas.width * 0.08,
+    canvas.height * 0.07,
+    120,
+    40,
+    "BACK",
+    "#475569",
+  );
 }
 
 export function drawSelectionScreen() {
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   const isP1Turn = state.playerClass === null;
-  const isP2CoopTurn = !isP1Turn && state.mode === "coop" && state.player2Class === null;
+  const isP2CoopTurn =
+    !isP1Turn && state.mode === "coop" && state.player2Class === null;
+  const isCpuTurn =
+    !isP1Turn && state.mode === "pvc" && state.enemyClass === null;
 
-  let playerColor, playerLabel;
+  let playerColor, playerLabel, chooseLabel;
   if (isP1Turn) {
     playerColor = "#38bdf8";
     playerLabel = "PLAYER 1";
+    chooseLabel = "CHOOSE YOUR SHIP";
   } else if (isP2CoopTurn) {
     playerColor = "#f87171";
     playerLabel = "PLAYER 2";
+    chooseLabel = "CHOOSE YOUR SHIP";
+  } else if (isCpuTurn) {
+    playerColor = "#f59e0b";
+    playerLabel = "COMPUTER";
+    chooseLabel = "CHOOSE CPU'S SHIP";
   } else {
     playerColor = "#f87171";
     playerLabel = "PLAYER 2";
+    chooseLabel = "CHOOSE YOUR SHIP";
+  }
+
+  let lockInLabel, lockInColor;
+  if (isP1Turn || isP2CoopTurn) {
+    lockInLabel = "LOCK IN";
+    lockInColor = isP1Turn ? "#2775e3" : "#9333ea";
+  } else if (isCpuTurn) {
+    lockInLabel = "LOCK IN";
+    lockInColor = "#f59e0b";
+  } else {
+    lockInLabel = "BATTLE!";
+    lockInColor = "#22c55e";
   }
 
   ctx.textAlign = "center";
@@ -159,7 +248,7 @@ export function drawSelectionScreen() {
 
   ctx.fillStyle = "#64748b";
   ctx.font = `${Math.max(8, Math.floor(canvas.width * 0.011))}px "Press Start 2P"`;
-  ctx.fillText("CHOOSE YOUR SHIP", canvas.width / 2, canvas.height * 0.13);
+  ctx.fillText(chooseLabel, canvas.width / 2, canvas.height * 0.13);
 
   const cards = getCardLayout();
   cards.forEach(({ key, centerX, centerY, cardWidth, cardHeight }) => {
@@ -184,37 +273,30 @@ export function drawSelectionScreen() {
       isHovered,
       isP1Pick,
       isP2Pick,
+      isActive ? lockInLabel : null,
+      isActive ? lockInColor : null,
     );
   });
 
+  // Back button — upper-left
   drawButton(
-    canvas.width * 0.12,
-    canvas.height * 0.89,
-    140,
-    44,
+    canvas.width * 0.08,
+    canvas.height * 0.07,
+    120,
+    40,
     "BACK",
     "#475569",
   );
 
-  if (state.pendingClass) {
-    let lockLabel, lockColor;
-    if (isP1Turn) {
-      lockLabel = "LOCK IN";
-      lockColor = "#2775e3";
-    } else if (isP2CoopTurn) {
-      lockLabel = "LOCK IN";
-      lockColor = "#9333ea";
-    } else {
-      lockLabel = "BATTLE!";
-      lockColor = "#22c55e";
-    }
+  // Randomize button — CPU turn only
+  if (isCpuTurn) {
     drawButton(
       canvas.width / 2,
-      canvas.height * 0.89,
-      220,
+      canvas.height * 0.955,
+      210,
       50,
-      lockLabel,
-      lockColor,
+      "RANDOMIZE",
+      "#f59e0b",
     );
   }
 }
@@ -229,6 +311,8 @@ function drawShipCard(
   isHovered,
   isP1Pick,
   isP2Pick,
+  lockInLabel,
+  lockInColor,
 ) {
   const config = shipConfig[classKey];
   const info = SHIP_INFO[classKey];
@@ -290,11 +374,21 @@ function drawShipCard(
   ctx.roundRect(imgX, imgY, imgW, imgH, 6);
   ctx.fill();
 
-  ctx.fillStyle = "#2d4060";
-  ctx.font = `${smallFontSize}px "Press Start 2P"`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("[ SHIP ]", centerX, imgY + imgH / 2);
+  const splashSprite = getSplashSprite(classKey);
+  if (splashSprite && splashSprite.complete && splashSprite.naturalWidth > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(imgX, imgY, imgW, imgH, 6);
+    ctx.clip();
+    ctx.drawImage(splashSprite, imgX, imgY, imgW, imgH);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#2d4060";
+    ctx.font = `${smallFontSize}px "Press Start 2P"`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("[ SHIP ]", centerX, imgY + imgH / 2);
+  }
 
   // Ship name
   ctx.fillStyle = config.color;
@@ -337,21 +431,62 @@ function drawShipCard(
   ctx.font = `${smallFontSize}px "Press Start 2P"`;
   ctx.fillText(info.skillDesc, centerX, p(0.85));
 
+  // Lock In button — only on the active (selected) card
+  if (lockInLabel) {
+    const lockBtnH = Math.max(28, cardHeight * 0.1);
+    const lockBtnCY = top + cardHeight * 0.93;
+    drawButton(
+      centerX,
+      lockBtnCY,
+      cardWidth * 0.82,
+      lockBtnH,
+      lockInLabel,
+      lockInColor,
+    );
+  }
+
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
 
   // P1 badge
   if (isP1Pick) {
-    drawBadge(left, top, cardWidth, cardHeight, imgPad, smallFontSize, "P1", "#38bdf8");
+    drawBadge(
+      left,
+      top,
+      cardWidth,
+      cardHeight,
+      imgPad,
+      smallFontSize,
+      "P1",
+      "#38bdf8",
+    );
   }
 
   // P2 badge (co-op second player pick shown during AI selection)
   if (isP2Pick) {
-    drawBadge(left, top, cardWidth, cardHeight, imgPad, smallFontSize, "P2", "#f87171");
+    drawBadge(
+      left,
+      top,
+      cardWidth,
+      cardHeight,
+      imgPad,
+      smallFontSize,
+      "P2",
+      "#f87171",
+    );
   }
 }
 
-function drawBadge(left, top, cardWidth, cardHeight, imgPad, smallFontSize, label, color) {
+function drawBadge(
+  left,
+  top,
+  cardWidth,
+  cardHeight,
+  imgPad,
+  smallFontSize,
+  label,
+  color,
+) {
   const badgeW = Math.max(24, cardWidth * 0.15);
   const badgeH = Math.max(14, cardHeight * 0.04);
   const badgeX = left + cardWidth - imgPad - badgeW;
@@ -370,16 +505,18 @@ function drawBadge(left, top, cardWidth, cardHeight, imgPad, smallFontSize, labe
 }
 
 export function drawWinScreen() {
-  const subtitle = state.mode === "coop"
-    ? "ALL WAVES CLEARED!"
-    : `${shipConfig[player?.classKey]?.label ?? "P1"} wins!`;
+  const subtitle =
+    state.mode === "coop"
+      ? "ALL WAVES CLEARED!"
+      : `${shipConfig[player?.classKey]?.label ?? "P1"} wins!`;
   drawEndScreen("#22c55e", "VICTORY!", subtitle);
 }
 
 export function drawGameOverScreen() {
-  const subtitle = state.mode === "coop"
-    ? "Enemy fleet wins!"
-    : `${shipConfig[enemy?.classKey]?.label ?? "Enemy"} wins!`;
+  const subtitle =
+    state.mode === "coop"
+      ? "Enemy fleet wins!"
+      : `${shipConfig[enemy?.classKey]?.label ?? "Enemy"} wins!`;
   drawEndScreen("#ef4444", "GAME OVER", subtitle);
 }
 
@@ -411,7 +548,11 @@ function drawEndScreen(titleColor, titleText, subtitleText) {
   // Match time
   ctx.fillStyle = "#f8fafc";
   ctx.font = `bold ${Math.floor(canvas.width * 0.022)}px monospace`;
-  ctx.fillText(`TIME  ${formatTime(state.stats.matchTimeMs)}`, cx, canvas.height * 0.35);
+  ctx.fillText(
+    `TIME  ${formatTime(state.stats.matchTimeMs)}`,
+    cx,
+    canvas.height * 0.35,
+  );
 
   // Stats card
   const cardW = canvas.width * 0.52;
@@ -429,22 +570,30 @@ function drawEndScreen(titleColor, titleText, subtitleText) {
   ctx.roundRect(cardX, cardY, cardW, cardH, 10);
   ctx.stroke();
 
-  const colLeft  = cardX + cardW * 0.22;
+  const colLeft = cardX + cardW * 0.22;
   const colRight = cardX + cardW * 0.78;
   const rowHeader = cardY + cardH * 0.2;
-  const rowDmg    = cardY + cardH * 0.48;
-  const rowShots  = cardY + cardH * 0.74;
+  const rowDmg = cardY + cardH * 0.48;
+  const rowShots = cardY + cardH * 0.74;
 
   const p1Color = player?.color ?? "#38bdf8";
-  const p2Color = enemy?.color  ?? "#f87171";
+  const p2Color = enemy?.color ?? "#f87171";
 
   // Column headers
   ctx.font = `bold ${Math.floor(canvas.width * 0.018)}px monospace`;
   ctx.fillStyle = p1Color;
   ctx.textAlign = "center";
-  ctx.fillText(state.mode === "coop" ? "ALLIED" : "PLAYER 1", colLeft, rowHeader);
+  ctx.fillText(
+    state.mode === "coop" ? "ALLIED" : "PLAYER 1",
+    colLeft,
+    rowHeader,
+  );
   ctx.fillStyle = p2Color;
-  ctx.fillText(state.mode === "coop" ? "ENEMY" : "PLAYER 2", colRight, rowHeader);
+  ctx.fillText(
+    state.mode === "coop" ? "ENEMY" : "PLAYER 2",
+    colRight,
+    rowHeader,
+  );
 
   // Divider line
   ctx.strokeStyle = "#1e3a5f";
@@ -465,8 +614,8 @@ function drawEndScreen(titleColor, titleText, subtitleText) {
   ctx.fillStyle = "#f8fafc";
   ctx.fillText(state.stats.p1DamageDealt, colLeft, rowDmg);
   ctx.fillText(state.stats.p2DamageDealt, colRight, rowDmg);
-  ctx.fillText(state.stats.p1ShotsFired,  colLeft,  rowShots);
-  ctx.fillText(state.stats.p2ShotsFired,  colRight, rowShots);
+  ctx.fillText(state.stats.p1ShotsFired, colLeft, rowShots);
+  ctx.fillText(state.stats.p2ShotsFired, colRight, rowShots);
 
   ctx.textBaseline = "alphabetic";
 
@@ -509,7 +658,14 @@ export function drawPauseScreen() {
   ctx.textBaseline = "alphabetic";
 
   drawButton(cx, cardY + cardH * 0.57, cardW * 0.72, 46, "RESUME", "#22c55e");
-  drawButton(cx, cardY + cardH * 0.82, cardW * 0.72, 46, "QUIT TO MENU", "#475569");
+  drawButton(
+    cx,
+    cardY + cardH * 0.82,
+    cardW * 0.72,
+    46,
+    "QUIT TO MENU",
+    "#475569",
+  );
 }
 
 export function handlePauseClick(mouseX, mouseY) {
@@ -532,7 +688,14 @@ export function handlePauseClick(mouseX, mouseY) {
   }
 }
 
-function drawButton(centerX, centerY, buttonWidth, buttonHeight, label, color) {
+function drawButton(
+  centerX,
+  centerY,
+  buttonWidth,
+  buttonHeight,
+  label,
+  _color,
+) {
   const hovered = isInsideButton(
     mouse.x,
     mouse.y,
@@ -544,258 +707,217 @@ function drawButton(centerX, centerY, buttonWidth, buttonHeight, label, color) {
   const pressed = hovered && mouse.pressed;
 
   const left = centerX - buttonWidth / 2;
-  const top = centerY - buttonHeight / 2;
+  const top = centerY - buttonHeight / 2 + (pressed ? 2 : 0);
+  const right = left + buttonWidth;
+  const bottom = top + buttonHeight;
+  const midY = centerY + (pressed ? 2 : 0);
 
-  // Shadow (offset down-right, skipped when pressed)
+  // Drop shadow
   if (!pressed) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(left + 3, top + 3, buttonWidth, buttonHeight);
+  }
+
+  // Metal plate — gunmetal base, olive tint on hover
+  const plateGrad = ctx.createLinearGradient(left, top, left, bottom);
+  if (hovered) {
+    plateGrad.addColorStop(0, "#4e5a3c");
+    plateGrad.addColorStop(0.5, "#3c4630");
+    plateGrad.addColorStop(1, "#2c3222");
+  } else {
+    plateGrad.addColorStop(0, "#3a3e40");
+    plateGrad.addColorStop(0.5, "#2c3032");
+    plateGrad.addColorStop(1, "#1e2224");
+  }
+  ctx.fillStyle = plateGrad;
+  ctx.fillRect(left, top, buttonWidth, buttonHeight);
+
+  // Bevel — top/left lighter, bottom/right darker
+  ctx.fillStyle = "rgba(200,210,200,0.14)";
+  ctx.fillRect(left, top, buttonWidth, 2);
+  ctx.fillRect(left, top, 2, buttonHeight);
+
+  ctx.fillStyle = "rgba(0,0,0,0.38)";
+  ctx.fillRect(left, bottom - 2, buttonWidth, 2);
+  ctx.fillRect(right - 2, top, 2, buttonHeight);
+
+  // Subtle wear scratches
+  ctx.save();
+  ctx.rect(left + 4, top + 4, buttonWidth - 8, buttonHeight - 8);
+  ctx.clip();
+  ctx.strokeStyle = "rgba(210,220,200,0.055)";
+  ctx.lineWidth = 1;
+  for (const scratchX of [0.18, 0.57]) {
     ctx.beginPath();
-    ctx.roundRect(left + 4, top + 4, buttonWidth, buttonHeight, 10);
+    ctx.moveTo(left + buttonWidth * scratchX, top);
+    ctx.lineTo(left + buttonWidth * (scratchX + 0.15), bottom);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Outer border
+  ctx.strokeStyle = hovered ? "#6e7c5a" : "#424a4e";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(
+    left + 0.75,
+    top + 0.75,
+    buttonWidth - 1.5,
+    buttonHeight - 1.5,
+  );
+
+  // Corner rivets
+  const rivetRadius = Math.max(2.5, Math.min(4.5, buttonHeight * 0.11));
+  const rivetPad = rivetRadius + 4;
+  for (const [rx, ry] of [
+    [left + rivetPad, top + rivetPad],
+    [right - rivetPad, top + rivetPad],
+    [left + rivetPad, bottom - rivetPad],
+    [right - rivetPad, bottom - rivetPad],
+  ]) {
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.beginPath();
+    ctx.arc(rx + 0.8, ry + 0.8, rivetRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    const rivetGrad = ctx.createRadialGradient(
+      rx - rivetRadius * 0.3,
+      ry - rivetRadius * 0.3,
+      0,
+      rx,
+      ry,
+      rivetRadius,
+    );
+    rivetGrad.addColorStop(0, "#8a9896");
+    rivetGrad.addColorStop(0.6, "#505c5a");
+    rivetGrad.addColorStop(1, "#282e2e");
+    ctx.fillStyle = rivetGrad;
+    ctx.beginPath();
+    ctx.arc(rx, ry, rivetRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(220,235,230,0.4)";
+    ctx.beginPath();
+    ctx.arc(
+      rx - rivetRadius * 0.28,
+      ry - rivetRadius * 0.32,
+      rivetRadius * 0.38,
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
 
-  // Base fill
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(left, pressed ? top + 3 : top, buttonWidth, buttonHeight, 10);
-  ctx.fill();
-
-  // Hover highlight overlay
-  if (hovered && !pressed) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
-    ctx.beginPath();
-    ctx.roundRect(left, top, buttonWidth, buttonHeight, 10);
-    ctx.fill();
-  }
-
-  // Press darken overlay
-  if (pressed) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
-    ctx.beginPath();
-    ctx.roundRect(left, top + 3, buttonWidth, buttonHeight, 10);
-    ctx.fill();
-  }
-
-  // Label
-  ctx.fillStyle = "#000000";
-  ctx.font = `14px "Press Start 2P"`;
+  // Stencil label
+  const fontSize = Math.max(9, Math.min(14, Math.floor(buttonHeight * 0.38)));
+  ctx.font = `${fontSize}px "Press Start 2P"`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, centerX, pressed ? centerY + 3 : centerY);
+
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillText(label, centerX + 1, midY + 1);
+
+  ctx.fillStyle = hovered ? "#d8e2c2" : "#a8b09a";
+  ctx.fillText(label, centerX, midY);
+
   ctx.textBaseline = "alphabetic";
 }
+
+const howToPlayImage = new Image();
+howToPlayImage.src = "assets/background/howtoplayy.png";
+
+const selectionBgImage = new Image();
+selectionBgImage.src = "assets/background/selection.png";
+
+const titleLogoImage = new Image();
+titleLogoImage.src = "assets/background/titlelogo.png";
 
 export function drawInstructionsScreen() {
   ctx.fillStyle = "#0f172a";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const cx = canvas.width / 2;
-  const titleSize  = Math.max(13, Math.floor(canvas.width * 0.022));
-  const headSize   = Math.max(8,  Math.floor(canvas.width * 0.012));
-  const bodySize   = Math.max(7,  Math.floor(canvas.width * 0.0095));
-  const smallSize  = Math.max(6,  Math.floor(canvas.width * 0.008));
+  if (howToPlayImage.complete && howToPlayImage.naturalWidth > 0) {
+    ctx.drawImage(howToPlayImage, 0, 0, canvas.width, canvas.height);
+  }
 
-  // Title
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = "#f8fafc";
-  ctx.font = `${titleSize}px "Press Start 2P"`;
-  ctx.fillText("HOW TO PLAY", cx, canvas.height * 0.1);
-
-  // Full-width divider
-  ctx.strokeStyle = "#1e3a5f";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(canvas.width * 0.04, canvas.height * 0.14);
-  ctx.lineTo(canvas.width * 0.96, canvas.height * 0.14);
-  ctx.stroke();
-
-  // ── Left panel ─────────────────────────────────────────────
-  const leftX  = canvas.width * 0.05;
-  const midX   = canvas.width * 0.26;   // P1 values column
-  const mid2X  = canvas.width * 0.41;   // P2 values column
-
-  // CONTROLS header
-  ctx.textAlign = "left";
-  ctx.font = `${headSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#38bdf8";
-  ctx.fillText("CONTROLS", leftX, canvas.height * 0.21);
-
-  // Column sub-headers
-  ctx.font = `${smallSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#475569";
-  ctx.fillText("ACTION", leftX,  canvas.height * 0.265);
-  ctx.fillStyle = "#38bdf8";
-  ctx.fillText("PLAYER 1",  midX,  canvas.height * 0.265);
-  ctx.fillStyle = "#f87171";
-  ctx.fillText("PLAYER 2",  mid2X, canvas.height * 0.265);
-
-  ctx.strokeStyle = "#1e293b";
-  ctx.beginPath();
-  ctx.moveTo(leftX, canvas.height * 0.28);
-  ctx.lineTo(canvas.width * 0.49, canvas.height * 0.28);
-  ctx.stroke();
-
-  const controlRows = [
-    ["Move",    "W  A  S  D",     "Arrows  /  Numpad"],
-    ["Fire",    "SPACE",          "ENTER  /  Numpad 5"],
-    ["Skill",   "E",              "P  /  Numpad 9"],
-    ["Toggle",  "Q",              "O  /  Numpad 7"],
-    ["Pause",   "ESC",            "—"],
-  ];
-
-  ctx.font = `${bodySize}px "Press Start 2P"`;
-  controlRows.forEach((row, i) => {
-    const rowY = canvas.height * (0.33 + i * 0.062);
-    ctx.fillStyle = "#64748b";
-    ctx.fillText(row[0], leftX,  rowY);
-    ctx.fillStyle = "#e2e8f0";
-    ctx.fillText(row[1], midX,   rowY);
-    ctx.fillStyle = "#fca5a5";
-    ctx.fillText(row[2], mid2X,  rowY);
-  });
-
-  // GAME MODES header
-  ctx.font = `${headSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#38bdf8";
-  ctx.fillText("GAME MODES", leftX, canvas.height * 0.66);
-
-  ctx.strokeStyle = "#1e293b";
-  ctx.beginPath();
-  ctx.moveTo(leftX, canvas.height * 0.676);
-  ctx.lineTo(canvas.width * 0.49, canvas.height * 0.676);
-  ctx.stroke();
-
-  const modes = [
-    { tag: "PVP",       color: "#0f766e", desc: "Two humans — left vs right" },
-    { tag: "1P vs CPU", color: "#2775e3", desc: "One human vs AI ship" },
-    { tag: "CO-OP",     color: "#9333ea", desc: "Two humans vs 3 AI waves" },
-  ];
-  modes.forEach((mode, i) => {
-    const modeY = canvas.height * (0.725 + i * 0.065);
-    ctx.font = `${bodySize * 1.05}px "Press Start 2P"`;
-    ctx.fillStyle = mode.color;
-    ctx.fillText(mode.tag, leftX, modeY);
-    ctx.font = `${smallSize}px "Press Start 2P"`;
-    ctx.fillStyle = "#94a3b8";
-    ctx.fillText(mode.desc, leftX + canvas.width * 0.12, modeY);
-  });
-
-  // Vertical divider
-  ctx.strokeStyle = "#1e3a5f";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cx + canvas.width * 0.01, canvas.height * 0.15);
-  ctx.lineTo(cx + canvas.width * 0.01, canvas.height * 0.87);
-  ctx.stroke();
-
-  // ── Right panel ─────────────────────────────────────────────
-  const rightX    = canvas.width * 0.555;
-  const rightIndX = canvas.width * 0.575;
-
-  // SHIP SKILLS header
-  ctx.font = `${headSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#38bdf8";
-  ctx.fillText("SHIP SKILLS", rightX, canvas.height * 0.21);
-
-  ctx.strokeStyle = "#1e293b";
-  ctx.beginPath();
-  ctx.moveTo(rightX, canvas.height * 0.225);
-  ctx.lineTo(canvas.width * 0.96, canvas.height * 0.225);
-  ctx.stroke();
-
-  const ships = [
-    {
-      name: "DESTROYER",
-      color: "#6ee7b7",
-      lines: [
-        { key: "[SKILL]",  label: "Fire 4 torpedoes in a forward fan" },
-        { key: "[TOGGLE]", label: "Switch spread: Wide / Close" },
-      ],
-    },
-    {
-      name: "CRUISER",
-      color: "#93c5fd",
-      lines: [
-        { key: "[SKILL]",  label: "Overdrive — speed & fire rate boost" },
-      ],
-    },
-    {
-      name: "BATTLESHIP",
-      color: "#fca5a5",
-      lines: [
-        { key: "[SKILL]",  label: "12-bullet barrage + instant reload" },
-      ],
-    },
-    {
-      name: "CARRIER",
-      color: "#fde68a",
-      lines: [
-        { key: "[SKILL]",  label: "Launch 2 planes (up to 4 total)" },
-        { key: "[TOGGLE]", label: "Switch: Torpedo / Dive bomber" },
-        { key: "[FIRE]",   label: "Auto-fires at close range (≤500px)" },
-      ],
-    },
-  ];
-
-  let skillY = canvas.height * 0.275;
-  const shipGap  = canvas.height * 0.055;
-  const lineGap  = canvas.height * 0.048;
-
-  ships.forEach((ship) => {
-    ctx.font = `${bodySize * 1.05}px "Press Start 2P"`;
-    ctx.fillStyle = ship.color;
-    ctx.fillText(ship.name, rightX, skillY);
-    skillY += shipGap * 0.85;
-
-    ctx.font = `${smallSize}px "Press Start 2P"`;
-    ship.lines.forEach((line) => {
-      ctx.fillStyle = "#fbbf24";
-      ctx.fillText(line.key, rightIndX, skillY);
-      ctx.fillStyle = "#94a3b8";
-      ctx.fillText(line.label, rightIndX + canvas.width * 0.088, skillY);
-      skillY += lineGap * 0.82;
-    });
-    skillY += shipGap * 0.45;
-  });
-
-  // Co-op note
-  ctx.font = `${smallSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#475569";
-  ctx.textAlign = "center";
-  ctx.fillText(
-    "In CO-OP, AI enemies use turrets only — no skills.",
-    cx + canvas.width * 0.23,
-    canvas.height * 0.87,
+  // BACK button — upper-left
+  drawButton(
+    canvas.width * 0.08,
+    canvas.height * 0.07,
+    120,
+    40,
+    "BACK",
+    "#475569",
   );
-
-  // BACK button
-  drawButton(cx, canvas.height * 0.93, 180, 46, "BACK", "#475569");
 }
 
 export function handleInstructionsClick(mouseX, mouseY) {
-  if (isInsideButton(mouseX, mouseY, canvas.width / 2, canvas.height * 0.93, 180, 46)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width * 0.08,
+      canvas.height * 0.07,
+      120,
+      40,
+    )
+  ) {
     state.gameState = "start";
   }
 }
 
 export function handleStartClick(mouseX, mouseY) {
-  if (isInsideButton(mouseX, mouseY, canvas.width / 2, canvas.height * 0.55, 220, 54)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width / 2,
+      canvas.height * 0.55,
+      220,
+      54,
+    )
+  ) {
     state.gameState = "modeSelect";
     return;
   }
-  if (isInsideButton(mouseX, mouseY, canvas.width / 2, canvas.height * 0.67, 220, 54)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width / 2,
+      canvas.height * 0.67,
+      220,
+      54,
+    )
+  ) {
     state.gameState = "instructions";
     return;
   }
-  if (isInsideButton(mouseX, mouseY, canvas.width / 2, canvas.height * 0.79, 220, 54)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width / 2,
+      canvas.height * 0.79,
+      220,
+      54,
+    )
+  ) {
     window.close();
   }
 }
 
 export function handleModeSelectClick(mouseX, mouseY) {
   // BACK
-  if (isInsideButton(mouseX, mouseY, canvas.width * 0.12, canvas.height * 0.82, 140, 44)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width * 0.08,
+      canvas.height * 0.07,
+      120,
+      40,
+    )
+  ) {
     state.gameState = "start";
     return;
   }
@@ -812,12 +934,30 @@ export function handleModeSelectClick(mouseX, mouseY) {
     state.gameState = "selection";
     return;
   }
-  if (isInsideButton(mouseX, mouseY, startX + buttonW + gap, buttonY, buttonW, buttonH)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      startX + buttonW + gap,
+      buttonY,
+      buttonW,
+      buttonH,
+    )
+  ) {
     state.mode = "coop";
     state.gameState = "selection";
     return;
   }
-  if (isInsideButton(mouseX, mouseY, startX + 2 * (buttonW + gap), buttonY, buttonW, buttonH)) {
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      startX + 2 * (buttonW + gap),
+      buttonY,
+      buttonW,
+      buttonH,
+    )
+  ) {
     state.mode = "pvp";
     state.gameState = "selection";
     return;
@@ -826,23 +966,26 @@ export function handleModeSelectClick(mouseX, mouseY) {
 
 export function handleSelectionClick(mouseX, mouseY) {
   const isP1Turn = state.playerClass === null;
-  const isP2CoopTurn = !isP1Turn && state.mode === "coop" && state.player2Class === null;
+  const isP2CoopTurn =
+    !isP1Turn && state.mode === "coop" && state.player2Class === null;
+  const isCpuTurn =
+    !isP1Turn && state.mode === "pvc" && state.enemyClass === null;
 
-  // BACK button
+  // BACK button — upper-left
   if (
     isInsideButton(
       mouseX,
       mouseY,
-      canvas.width * 0.12,
-      canvas.height * 0.89,
-      140,
-      44,
+      canvas.width * 0.08,
+      canvas.height * 0.07,
+      120,
+      40,
     )
   ) {
     state.pendingClass = null;
     if (isP1Turn) {
       state.gameState = "modeSelect";
-    } else if (isP2CoopTurn) {
+    } else if (isP2CoopTurn || isCpuTurn) {
       state.playerClass = null;
     } else {
       state.playerClass = null;
@@ -851,43 +994,69 @@ export function handleSelectionClick(mouseX, mouseY) {
     return;
   }
 
-  // LOCK IN / BATTLE button
-  if (state.pendingClass) {
+  // Randomize button — CPU turn only
+  if (isCpuTurn) {
     if (
       isInsideButton(
         mouseX,
         mouseY,
         canvas.width / 2,
-        canvas.height * 0.89,
-        220,
+        canvas.height * 0.9,
+        210,
         50,
       )
     ) {
-      if (isP1Turn) {
-        state.playerClass = state.pendingClass;
-        state.pendingClass = null;
-        if (state.mode === "pvc") {
-          // AI picks instantly, no second selection screen
-          state.enemyClass = randomClass();
-          state.gameState = "playing";
-        }
-      } else if (isP2CoopTurn) {
-        state.player2Class = state.pendingClass;
-        state.pendingClass = null;
-        state.enemyClass = null;
-        state.gameState = "playing";
-      } else {
-        // pvp P2 turn
-        state.enemyClass = state.pendingClass;
-        state.pendingClass = null;
-        state.gameState = "playing";
-      }
+      state.enemyClass = randomClass();
+      state.pendingClass = null;
+      state.gameState = "playing";
       return;
     }
   }
 
-  // Card clicks — update pending selection
   const cards = getCardLayout();
+
+  // Lock In button on the active card
+  if (state.pendingClass) {
+    for (const { key, centerX, centerY, cardWidth, cardHeight } of cards) {
+      if (key !== state.pendingClass) continue;
+      const top = centerY - cardHeight / 2;
+      const lockBtnH = Math.max(28, cardHeight * 0.1);
+      const lockBtnCY = top + cardHeight * 0.93;
+      if (
+        isInsideButton(
+          mouseX,
+          mouseY,
+          centerX,
+          lockBtnCY,
+          cardWidth * 0.82,
+          lockBtnH,
+        )
+      ) {
+        if (isP1Turn) {
+          state.playerClass = state.pendingClass;
+          state.pendingClass = null;
+          // Stay on selection screen — CPU now picks in pvc mode
+        } else if (isCpuTurn) {
+          state.enemyClass = state.pendingClass;
+          state.pendingClass = null;
+          state.gameState = "playing";
+        } else if (isP2CoopTurn) {
+          state.player2Class = state.pendingClass;
+          state.pendingClass = null;
+          state.enemyClass = null;
+          state.gameState = "playing";
+        } else {
+          // pvp P2 turn
+          state.enemyClass = state.pendingClass;
+          state.pendingClass = null;
+          state.gameState = "playing";
+        }
+        return;
+      }
+    }
+  }
+
+  // Card clicks — update pending selection
   for (const { key, centerX, centerY, cardWidth, cardHeight } of cards) {
     if (
       isInsideButton(mouseX, mouseY, centerX, centerY, cardWidth, cardHeight)
@@ -943,11 +1112,39 @@ export function updateCursor() {
 
   if (state.gameState === "start") {
     hovered =
-      isInsideButton(mouse.x, mouse.y, canvas.width / 2, canvas.height * 0.55, 220, 54) ||
-      isInsideButton(mouse.x, mouse.y, canvas.width / 2, canvas.height * 0.67, 220, 54) ||
-      isInsideButton(mouse.x, mouse.y, canvas.width / 2, canvas.height * 0.79, 220, 54);
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        canvas.width / 2,
+        canvas.height * 0.55,
+        220,
+        54,
+      ) ||
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        canvas.width / 2,
+        canvas.height * 0.67,
+        220,
+        54,
+      ) ||
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        canvas.width / 2,
+        canvas.height * 0.79,
+        220,
+        54,
+      );
   } else if (state.gameState === "instructions") {
-    hovered = isInsideButton(mouse.x, mouse.y, canvas.width / 2, canvas.height * 0.93, 180, 46);
+    hovered = isInsideButton(
+      mouse.x,
+      mouse.y,
+      canvas.width * 0.08,
+      canvas.height * 0.07,
+      120,
+      40,
+    );
   } else if (state.gameState === "modeSelect") {
     const buttonY = canvas.height * 0.5;
     const buttonW = 200;
@@ -957,10 +1154,35 @@ export function updateCursor() {
     const startX = (canvas.width - totalW) / 2 + buttonW / 2;
     hovered =
       isInsideButton(mouse.x, mouse.y, startX, buttonY, buttonW, buttonH) ||
-      isInsideButton(mouse.x, mouse.y, startX + buttonW + gap, buttonY, buttonW, buttonH) ||
-      isInsideButton(mouse.x, mouse.y, startX + 2 * (buttonW + gap), buttonY, buttonW, buttonH) ||
-      isInsideButton(mouse.x, mouse.y, canvas.width * 0.12, canvas.height * 0.82, 140, 44);
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        startX + buttonW + gap,
+        buttonY,
+        buttonW,
+        buttonH,
+      ) ||
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        startX + 2 * (buttonW + gap),
+        buttonY,
+        buttonW,
+        buttonH,
+      ) ||
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        canvas.width * 0.08,
+        canvas.height * 0.07,
+        120,
+        40,
+      );
   } else if (state.gameState === "selection") {
+    const isCpuTurn =
+      state.playerClass !== null &&
+      state.mode === "pvc" &&
+      state.enemyClass === null;
     const cards = getCardLayout();
     hovered =
       cards.some(({ centerX, centerY, cardWidth, cardHeight }) =>
@@ -976,19 +1198,39 @@ export function updateCursor() {
       isInsideButton(
         mouse.x,
         mouse.y,
-        canvas.width * 0.12,
-        canvas.height * 0.89,
-        140,
-        44,
+        canvas.width * 0.08,
+        canvas.height * 0.07,
+        120,
+        40,
       );
 
     if (!hovered && state.pendingClass) {
+      for (const { key, centerX, centerY, cardWidth, cardHeight } of cards) {
+        if (key !== state.pendingClass) continue;
+        const top = centerY - cardHeight / 2;
+        const lockBtnH = Math.max(28, cardHeight * 0.1);
+        const lockBtnCY = top + cardHeight * 0.93;
+        if (
+          isInsideButton(
+            mouse.x,
+            mouse.y,
+            centerX,
+            lockBtnCY,
+            cardWidth * 0.82,
+            lockBtnH,
+          )
+        ) {
+          hovered = true;
+        }
+      }
+    }
+    if (!hovered && isCpuTurn) {
       hovered = isInsideButton(
         mouse.x,
         mouse.y,
         canvas.width / 2,
-        canvas.height * 0.89,
-        220,
+        canvas.height * 0.9,
+        210,
         50,
       );
     }

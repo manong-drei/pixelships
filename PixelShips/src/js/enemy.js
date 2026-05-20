@@ -1,9 +1,6 @@
 import { canvas } from "./canvas.js";
 import { createShip, updateShip, drawShip } from "./ship.js";
-import { createAiState } from "./ai.js";
-
-const AI_HEALTH_MULT = 0.6;
-const AI_DAMAGE_MULT = 0.6;
+import { createAiState, AI_HEALTH_MULT, AI_DAMAGE_MULT } from "./ai.js";
 
 export let enemy = null;
 export let ally = null;

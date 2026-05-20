@@ -7,7 +7,7 @@ export const state = {
   pendingClass: null,
   paused: false,
   coopWave: 0,
-  coopTotalWaves: 3,
+  coopTotalWaves: 5,
   waveTransitionTimer: 0,
   stats: {
     p1ShotsFired: 0,

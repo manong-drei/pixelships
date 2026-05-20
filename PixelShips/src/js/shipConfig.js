@@ -48,7 +48,7 @@ export const shipConfig = {
     label: "Aircraft Carrier",
     health: 254,
     speed: 0.7,
-    damage: 1,
+    damage: 0.5,
     fireRate: 100,
     skillCooldown: 10000,
     skillType: "planes",

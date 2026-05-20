@@ -8,7 +8,7 @@ A browser-based WW2 naval combat game with three game modes. Choose your warship
 
 | Mode | Description |
 |---|---|
-| **1P vs CPU** | One human fights a single AI-controlled enemy ship |
+| **1P vs CPU** | One human fights a single AI-controlled enemy ship. The player also picks which ship the CPU will use (or hits Randomize to let the game decide). |
 | **Co-op** | Two humans share the left side of the map and fight through 3 waves of AI enemies |
 | **PvP** | Two humans face off — P1 on the left, P2 on the right |
 
@@ -17,6 +17,13 @@ A browser-based WW2 naval combat game with three game modes. Choose your warship
 ## How to Play
 
 Open `src/index.html` with a local server (e.g. VS Code Live Server). Choose a mode, select your ship (co-op selects two ships), then battle.
+
+### Ship selection
+
+- Click a ship card to select it. A **Lock In** button appears on the card itself.
+- Click **Lock In** to confirm. In PvP the final player's button reads **Battle!** and starts the match.
+- In **1P vs CPU** mode, after P1 locks in, a second selection screen appears so the player can choose the CPU's ship. Hit **Randomize** to skip straight to battle with a random CPU ship.
+- A **Back** button in the upper-left corner returns to the previous screen at any point.
 
 ---
 
@@ -106,12 +113,12 @@ Torpedoes and carrier planes are not range-limited — they are the long-range o
 ## Co-op Wave Mode
 
 - Both players spawn on the **left** side.
-- **Wave 1:** 1 enemy ship. **Wave 2:** 2 ships. **Wave 3:** 3 ships.
+- **Wave 1:** 1 enemy ship. **Wave 2:** 2 ships. **Wave 3:** 3 ships. **Wave 4:** 4 ships. **Wave 5:** 5 ships.
 - Enemy ships are randomly drawn from: Destroyer, Cruiser, Battleship. No carriers.
 - AI enemies fire turrets only — no skills.
-- AI enemy health and damage are reduced to **60%** of base values.
+- AI enemy health and damage are scaled by `AI_HEALTH_MULT` / `AI_DAMAGE_MULT` in `src/js/ai.js`.
 - Clearing a wave shows a 2-second "GET READY!" overlay before the next wave spawns.
-- **Win:** Clear all 3 waves. **Lose:** Both players reach 0 HP.
+- **Win:** Clear all 5 waves. **Lose:** Both players reach 0 HP.
 
 ---
 
