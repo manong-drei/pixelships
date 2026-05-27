@@ -170,16 +170,16 @@ export function drawModeSelectScreen() {
 
   const descSize = Math.max(7, Math.floor(canvas.width * 0.011));
   ctx.font = `${descSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#475569";
+  ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
-  ctx.fillText("1 human vs AI", startX, buttonY + buttonH / 2 + 20);
+  ctx.fillText("Player vs AI", startX, buttonY + buttonH / 2 + 20);
   ctx.fillText(
-    "2 humans vs AI",
+    "Coop vs AI",
     startX + buttonW + gap,
     buttonY + buttonH / 2 + 20,
   );
   ctx.fillText(
-    "2 humans",
+    "Player vs Player",
     startX + 2 * (buttonW + gap),
     buttonY + buttonH / 2 + 20,
   );
