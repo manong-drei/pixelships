@@ -9,7 +9,7 @@ A browser-based WW2 naval combat game with three game modes. Choose your warship
 | Mode | Description |
 |---|---|
 | **1P vs CPU** | One human fights a single AI-controlled enemy ship. The player also picks which ship the CPU will use (or hits Randomize to let the game decide). |
-| **Co-op** | Two humans share the left side of the map and fight through 3 waves of AI enemies |
+| **Co-op** | Two humans share the left side of the map and fight through 5 waves of AI enemies |
 | **PvP** | Two humans face off — P1 on the left, P2 on the right |
 
 ---
@@ -62,7 +62,7 @@ Fast and agile. Light armor, quick guns.
 
 - **Skill:** Fires 4 torpedoes in a forward fan.
 - **Toggle (Q/O):** Switch torpedo spread between **Wide** and **Close**.
-- **Turrets:** 2 turrets, 2 rounds each, 500 ms reload per round.
+- **Turrets:** 2 turrets, 2 rounds each, 1 s reload per round.
 
 ### Cruiser
 Balanced all-rounder.
@@ -73,8 +73,8 @@ Balanced all-rounder.
 ### Battleship
 Heavily armored. Slow but devastating.
 
-- **Skill:** Barrage — fires 12 rounds (3 volleys × 4 turrets) in rapid succession, then instantly reloads all turrets.
-- **Turrets:** 3 turrets, 3 rounds each, 6 s reload per round.
+- **Skill:** Barrage — fires 9 rounds (3 volleys × 3 turrets) in rapid succession, then instantly reloads all turrets.
+- **Turrets:** 3 turrets, 3 rounds each, 6.5 s reload per round.
 
 ### Aircraft Carrier
 Highest health pool. Launches planes that hunt and strike the enemy.
@@ -141,6 +141,6 @@ Torpedoes and carrier planes are not range-limited — they are the long-range o
 |---|---|
 | P1 health + cooldowns | Top left |
 | P2 health + cooldowns | Left side, below P1 |
-| Wave counter | Top center (`WAVE X / 3`) |
+| Wave counter | Top center (`WAVE X / 5`) |
 | Enemy health bars | Top right (one bar per wave enemy) |
 | Ship class names | Bottom left |

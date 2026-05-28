@@ -3,17 +3,21 @@ import { state } from "./state.js";
 import {
   drawStartScreen,
   drawModeSelectScreen,
+  drawModeHubScreen,
   drawSelectionScreen,
   drawWinScreen,
   drawGameOverScreen,
   drawPauseScreen,
   drawInstructionsScreen,
+  drawCampaignBriefingScreen,
   handleStartClick,
   handleModeSelectClick,
+  handleModeHubClick,
   handleSelectionClick,
   handleEndClick,
   handlePauseClick,
   handleInstructionsClick,
+  handleCampaignBriefingClick,
   updateCursor,
 } from "./screens.js";
 import * as playerMod from "./player.js";
@@ -92,6 +96,9 @@ canvas.addEventListener("click", (event) => {
     return;
   }
   if (state.gameState === "start") handleStartClick(mouseX, mouseY);
+  else if (state.gameState === "modeHub") handleModeHubClick(mouseX, mouseY);
+  else if (state.gameState === "campaignBriefing")
+    handleCampaignBriefingClick(mouseX, mouseY);
   else if (state.gameState === "instructions")
     handleInstructionsClick(mouseX, mouseY);
   else if (state.gameState === "modeSelect")
@@ -104,8 +111,18 @@ canvas.addEventListener("click", (event) => {
 
 const pressedOnce = {};
 const GAME_KEYS = new Set([
-  "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "Numpad2", "Numpad4", "Numpad5", "Numpad6", "Numpad7", "Numpad8", "Numpad9",
+  "Space",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Numpad2",
+  "Numpad4",
+  "Numpad5",
+  "Numpad6",
+  "Numpad7",
+  "Numpad8",
+  "Numpad9",
 ]);
 
 window.addEventListener("keydown", (event) => {
@@ -731,6 +748,10 @@ function draw() {
 
   if (state.gameState === "start") {
     drawStartScreen(titleBackgroundImage);
+  } else if (state.gameState === "modeHub") {
+    drawModeHubScreen();
+  } else if (state.gameState === "campaignBriefing") {
+    drawCampaignBriefingScreen();
   } else if (state.gameState === "instructions") {
     drawInstructionsScreen();
   } else if (state.gameState === "modeSelect") {

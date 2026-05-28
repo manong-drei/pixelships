@@ -128,6 +128,102 @@ export function drawStartScreen(titleBg) {
   );
 }
 
+export function drawModeHubScreen() {
+  // Background
+  if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Title
+  const titleSize = Math.max(14, Math.floor(canvas.width * 0.025));
+  ctx.font = `${titleSize}px "Press Start 2P"`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText("PIXEL SHIPS", canvas.width / 2, canvas.height * 0.28);
+
+  // Subtitle
+  const subSize = Math.max(8, Math.floor(canvas.width * 0.013));
+  ctx.font = `${subSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#94a3b8";
+  ctx.fillText("CHOOSE YOUR BATTLE", canvas.width / 2, canvas.height * 0.36);
+
+  // Buttons — vertically stacked, centered
+  const btnW = 220;
+  const btnH = 54;
+  const btnX = canvas.width / 2;
+  const btn1Y = canvas.height * 0.5;
+  const btn2Y = canvas.height * 0.62;
+
+  drawButton(btnX, btn1Y, btnW, btnH, "CAMPAIGN", "#f59e0b"); // amber/gold
+  drawButton(btnX, btn2Y, btnW, btnH, "CUSTOM", "#2775e3"); // blue
+
+  // Descriptions under each button
+  const descSize = Math.max(7, Math.floor(canvas.width * 0.01));
+  ctx.font = `${descSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#64748b";
+  ctx.fillText("5-Mission Solo Campaign", btnX, btn1Y + btnH / 2 + 18);
+  ctx.fillText("1P vs CPU · Co-op · PvP", btnX, btn2Y + btnH / 2 + 18);
+
+  // Back button
+  drawButton(
+    canvas.width * 0.08,
+    canvas.height * 0.07,
+    120,
+    40,
+    "BACK",
+    "#475569",
+  );
+}
+
+export function handleModeHubClick(mouseX, mouseY) {
+  // BACK — return to start screen
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width * 0.08,
+      canvas.height * 0.07,
+      120,
+      40,
+    )
+  ) {
+    state.gameState = "start";
+    return;
+  }
+
+  const btnW = 220;
+  const btnH = 54;
+  const btnX = canvas.width / 2;
+  const btn1Y = canvas.height * 0.5;
+  const btn2Y = canvas.height * 0.62;
+
+  // CAMPAIGN
+  if (isInsideButton(mouseX, mouseY, btnX, btn1Y, btnW, btnH)) {
+    // For now, placeholder — goes to campaign briefing
+    // (We'll add the campaign briefing screen later)
+    state.gameState = "campaignBriefing";
+    return;
+  }
+
+  // CUSTOM
+  if (isInsideButton(mouseX, mouseY, btnX, btn2Y, btnW, btnH)) {
+    state.gameState = "modeSelect";
+    return;
+  }
+}
+export function drawCampaignBriefingScreen() {
+  // Temporary: just show a placeholder until we build the campaign
+  drawModeHubScreen(); // fallback for now
+}
+
+export function handleCampaignBriefingClick(mouseX, mouseY) {
+  // Temporary: go back to hub
+  state.gameState = "modeHub";
+}
 export function drawModeSelectScreen() {
   if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
     ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
@@ -876,7 +972,7 @@ export function handleStartClick(mouseX, mouseY) {
       54,
     )
   ) {
-    state.gameState = "modeSelect";
+    state.gameState = "modeHub";
     return;
   }
   if (
@@ -918,7 +1014,7 @@ export function handleModeSelectClick(mouseX, mouseY) {
       40,
     )
   ) {
-    state.gameState = "start";
+    state.gameState = "modeHub";
     return;
   }
 

@@ -12,7 +12,7 @@ npx @tailwindcss/cli -i ./src/input.css -o ./src/output.css
 npx @tailwindcss/cli -i ./src/input.css -o ./src/output.css --watch
 ```
 
-Open `src/index.html` directly in a browser — no dev server needed. The game uses ES modules so it must be served over HTTP/file protocol that supports modules (use VS Code Live Server or similar if modules fail to load from `file://`).
+Open `src/index.html` with a local HTTP server, such as VS Code Live Server. The game uses ES modules, so loading directly from `file://` may fail in some browsers.
 
 There are no tests, no linter, and no build step beyond Tailwind.
 
@@ -32,7 +32,7 @@ State transitions are driven by `state.gameState` (in `state.js`). The loop chec
 |---|---|---|
 | Player vs Player | `"pvp"` | Two humans, P1 left / P2 right |
 | 1P vs CPU | `"pvc"` | One human vs single AI enemy |
-| Co-op wave | `"coop"` | Two humans on left vs 3 waves of AI from right |
+| Co-op wave | `"coop"` | Two humans on left vs 5 waves of AI from right |
 
 In `"coop"` mode `enemy` is always `null`. The opponents are stored in `enemyMod.waveEnemies[]`.
 
@@ -53,9 +53,10 @@ In `"pvc"` mode, after P1 locks in, the screen transitions to the CPU-pick phase
 
 | Module | Owns | Does NOT own |
 |---|---|---|
-| `state.js` | `gameState`, `mode`, `playerClass`, wave counters | Nothing else |
+| `state.js` | `gameState`, `mode`, selected classes, pause flag, wave counters, match stats | Ship objects and gameplay logic |
 | `canvas.js` | `canvas` element, `ctx`, resize | No game logic |
 | `shipConfig.js` | All ship stats (hp, speed, damage, rates, cooldowns, turretSpec) | No objects |
+| `ship.js` | Shared ship creation, movement, turret reload ticking, drawing | Player/enemy ownership, firing |
 | `player.js` | `player` object, P1 keyboard state (`keys`), movement, drawing | Firing (main.js fires on Space) |
 | `enemy.js` | `enemy` (P2/CPU), `ally` (co-op P2), `waveEnemies[]`, P2 keyboard state, movement, drawing | Firing (main.js), AI logic |
 | `ai.js` | `createAiState()`, `updateAi()` — 4-tactic movement AI, returns move/aim/fire/skill decisions; `AI_HEALTH_MULT`, `AI_DAMAGE_MULT` constants | Ship state, firing |
@@ -63,6 +64,7 @@ In `"pvc"` mode, after P1 locks in, the screen transitions to the CPU-pick phase
 | `collision.js` | AABB hit detection, writes health, sets win/gameOver; branches on mode | No drawing |
 | `skills.js` | Skill dispatch, barrage queue, torpedo/AC mode toggle, ally skill variants | Plane flight paths |
 | `planes.js` | `planePending` queue, active plane flight, torpedo/bomb spawning | Skill trigger logic |
+| `effects.js` | Explosion and splash sprite effects | Collision/projectile decisions |
 | `ui.js` | HUD drawing only | No state mutation |
 | `screens.js` | All non-gameplay screen drawing + click hit-testing | No game objects |
 | `assets.js` | Ship sprite preloading, directional sprite lookup by ship type + `dir` | No game logic |
@@ -74,9 +76,9 @@ In `"pvc"` mode, after P1 locks in, the screen transitions to the CPU-pick phase
 ### Layout and coordinate system
 
 - Origin `(0, 0)` is top-left.
-- P1 spawns at `canvas.width * 0.1, canvas.height / 2` — left side, facing right.
+- P1 initially spawns at `canvas.width * 0.1, canvas.height / 2` — left side, facing right.
 - P2 (PvP/PvC enemy) spawns at `canvas.width * 0.9, canvas.height / 2` — right side, facing left.
-- Co-op ally (P2) spawns at `canvas.width * 0.2, canvas.height / 2` — left side near P1, facing right.
+- In co-op, `initGame()` repositions P1 and ally to `canvas.width * 0.15`, at `canvas.height * 0.37` and `canvas.height * 0.63` respectively.
 - Wave enemies spawn at `canvas.width * 0.9`, y staggered by wave count with 15% canvas padding, facing left.
 - All positions are relative to canvas dimensions — never hardcoded pixel values.
 - `ship.dir` is a normalized `{x, y}` vector updated on movement. Projectiles and skill effects use this vector for direction.
@@ -111,6 +113,7 @@ In co-op mode, `useSkill` / `toggleMode` decisions from `updateAi` are intention
 ### Co-op wave mode
 
 - `state.coopWave` is 1-based; starts at 0 and is incremented by `spawnNextWave()`.
+- `state.coopTotalWaves` is currently 5. Wave N spawns N enemy ships.
 - `state.waveTransitionTimer` is a countdown in ms. While > 0 a "GET READY!" overlay is shown and AI is paused.
 - Wave clear is detected by polling `waveEnemies.every(e => e.health <= 0)` each frame. On clear, if more waves remain the timer is set to `WAVE_TRANSITION_MS (2000)`. If last wave, `state.gameState = "win"`.
 - Win detection for co-op lives entirely in `main.js update()` — `collision.js` does not set win in co-op.
@@ -146,7 +149,7 @@ Every ship object carries all its own state. No ship state lives in `state.js`. 
 |---|---|---|
 | Destroyer | 4 torpedoes in a fan | Switch torpedo spread: wide / close |
 | Cruiser | Overdrive — speed + fire rate boost | — |
-| Battleship | 12-bullet barrage (3 volleys × 4 turrets), then full reload | — |
+| Battleship | 9-bullet barrage (3 volleys × 3 turrets), then full reload | — |
 | Carrier | Launch 2 scout planes | Switch plane type: torpedo / dive bomber |
 
 Enemy/wave ships have the same skill infrastructure but skills are not triggered in AI-controlled ships during co-op wave mode.
