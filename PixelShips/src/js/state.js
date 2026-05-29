@@ -8,6 +8,8 @@ export const state = {
   paused: false,
   coopWave: 0,
   coopTotalWaves: 5,
+  campaignMission: 0,
+  campaignMode: false,
   waveTransitionTimer: 0,
   stats: {
     p1ShotsFired: 0,

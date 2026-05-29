@@ -4,6 +4,7 @@ import { shipConfig } from "./shipConfig.js";
 import { player } from "./player.js";
 import { enemy } from "./enemy.js";
 import { getSplashSprite } from "./assets.js";
+import { campaign, missions } from "./campaign.js";
 
 const CLASS_KEYS = Object.keys(shipConfig);
 
@@ -216,13 +217,192 @@ export function handleModeHubClick(mouseX, mouseY) {
   }
 }
 export function drawCampaignBriefingScreen() {
-  // Temporary: just show a placeholder until we build the campaign
-  drawModeHubScreen(); // fallback for now
-}
+  if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
+  const mission = missions[campaign.currentMission];
+  const cx = canvas.width / 2;
+
+  // Header
+  const headerSize = Math.max(9, Math.floor(canvas.width * 0.013));
+  ctx.font = `${headerSize}px "Press Start 2P"`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#f59e0b";
+  ctx.fillText("CAMPAIGN", cx, canvas.height * 0.1);
+
+  // Mission title
+  const titleSize = Math.max(13, Math.floor(canvas.width * 0.022));
+  ctx.font = `${titleSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText(
+    `MISSION ${campaign.currentMission + 1} — "${mission.title.toUpperCase()}"`,
+    cx,
+    canvas.height * 0.2,
+  );
+
+  // Briefing text (word-wrapped)
+  const briefSize = Math.max(8, Math.floor(canvas.width * 0.011));
+  ctx.font = `${briefSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#94a3b8";
+  drawWrappedText(
+    mission.briefing,
+    cx,
+    canvas.height * 0.3,
+    canvas.width * 0.6,
+    briefSize * 1.8,
+  );
+
+  // Enemy forces
+  const labelSize = Math.max(8, Math.floor(canvas.width * 0.011));
+  ctx.font = `${labelSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#f87171";
+  const enemyStr = mission.enemies
+    .map(
+      (e) => `${e.count}x ${e.type.charAt(0).toUpperCase() + e.type.slice(1)}`,
+    )
+    .join(", ");
+  ctx.fillText(`ENEMY: ${enemyStr}`, cx, canvas.height * 0.45);
+
+  // Your ship
+  ctx.fillStyle = "#38bdf8";
+  if (mission.playerShip === "choose") {
+    const selectedLabel = state.playerClass
+      ? `YOUR SHIP: ${state.playerClass.toUpperCase()} [LOCKED IN]`
+      : "YOUR SHIP: [ SELECT ]";
+    ctx.fillText(selectedLabel, cx, canvas.height * 0.53);
+  } else {
+    ctx.fillText(
+      `YOUR SHIP: ${mission.playerShip.toUpperCase()} (ASSIGNED)`,
+      cx,
+      canvas.height * 0.53,
+    );
+  }
+
+  // Battle button
+  const canStart =
+    mission.playerShip !== "choose" || state.playerClass !== null;
+  drawButton(
+    cx,
+    canvas.height * 0.65,
+    200,
+    54,
+    "BATTLE!",
+    canStart ? "#22c55e" : "#374151",
+  );
+
+  // Select ship button (missions with "choose")
+  if (mission.playerShip === "choose" && state.playerClass === null) {
+    drawButton(cx, canvas.height * 0.75, 200, 46, "SELECT SHIP", "#2775e3");
+  }
+
+  // Progress dots
+  const dotRadius = 7;
+  const dotGap = 28;
+  const dotsStartX = cx - ((missions.length - 1) * dotGap) / 2;
+  const dotY = canvas.height * 0.87;
+  for (let i = 0; i < missions.length; i++) {
+    ctx.beginPath();
+    ctx.arc(dotsStartX + i * dotGap, dotY, dotRadius, 0, Math.PI * 2);
+    if (campaign.completedMissions.includes(i)) {
+      ctx.fillStyle = "#f59e0b";
+    } else if (i === campaign.currentMission) {
+      ctx.fillStyle = "#38bdf8";
+    } else {
+      ctx.fillStyle = "#334155";
+    }
+    ctx.fill();
+  }
+
+  const dotLabelSize = Math.max(7, Math.floor(canvas.width * 0.009));
+  ctx.font = `${dotLabelSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#64748b";
+  ctx.fillText(
+    `${campaign.completedMissions.length} OF 5 COMPLETE`,
+    cx,
+    dotY + dotRadius + 18,
+  );
+
+  // Back button
+  drawButton(
+    canvas.width * 0.08,
+    canvas.height * 0.07,
+    120,
+    40,
+    "BACK",
+    "#475569",
+  );
+}
 export function handleCampaignBriefingClick(mouseX, mouseY) {
-  // Temporary: go back to hub
-  state.gameState = "modeHub";
+  // BACK
+  if (
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width * 0.08,
+      canvas.height * 0.07,
+      120,
+      40,
+    )
+  ) {
+    state.playerClass = null;
+    state.pendingClass = null;
+    state.gameState = "modeHub";
+    return;
+  }
+
+  const mission = missions[campaign.currentMission];
+  const canStart =
+    mission.playerShip !== "choose" || state.playerClass !== null;
+
+  // SELECT SHIP (choose missions only, before a class is picked)
+  if (mission.playerShip === "choose" && state.playerClass === null) {
+    if (
+      isInsideButton(
+        mouseX,
+        mouseY,
+        canvas.width / 2,
+        canvas.height * 0.75,
+        200,
+        46,
+      )
+    ) {
+      state.campaignMode = true;
+      state.mode = "pvc";
+      state.playerClass = null;
+      state.pendingClass = null;
+      state.enemyClass = null;
+      state.gameState = "selection";
+      return;
+    }
+  }
+
+  // BATTLE
+  if (canStart) {
+    if (
+      isInsideButton(
+        mouseX,
+        mouseY,
+        canvas.width / 2,
+        canvas.height * 0.65,
+        200,
+        54,
+      )
+    ) {
+      if (mission.playerShip !== "choose") {
+        state.playerClass = mission.playerShip;
+      }
+      state.campaignMode = true;
+      state.mode = "pvc";
+      state.enemyClass = mission.enemies[0].type;
+      state.gameState = "playing";
+      return;
+    }
+  }
 }
 export function drawModeSelectScreen() {
   if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
@@ -289,7 +469,22 @@ export function drawModeSelectScreen() {
     "#475569",
   );
 }
-
+function drawWrappedText(text, cx, startY, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  let y = startY;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, cx, y);
+      line = word;
+      y += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, cx, y);
+}
 export function drawSelectionScreen() {
   if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
     ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
@@ -1131,7 +1326,10 @@ export function handleSelectionClick(mouseX, mouseY) {
         if (isP1Turn) {
           state.playerClass = state.pendingClass;
           state.pendingClass = null;
-          // Stay on selection screen — CPU now picks in pvc mode
+          if (state.campaignMode) {
+            state.gameState = "campaignBriefing";
+          }
+          // Stay on selection screen — CPU now picks in pvc mode (non-campaign)
         } else if (isCpuTurn) {
           state.enemyClass = state.pendingClass;
           state.pendingClass = null;
@@ -1329,6 +1527,38 @@ export function updateCursor() {
         210,
         50,
       );
+    } else if (state.gameState === "campaignBriefing") {
+      const mission = missions[campaign.currentMission];
+      const canStart =
+        mission.playerShip !== "choose" || state.playerClass !== null;
+      hovered =
+        isInsideButton(
+          mouse.x,
+          mouse.y,
+          canvas.width * 0.08,
+          canvas.height * 0.07,
+          120,
+          40,
+        ) ||
+        (canStart &&
+          isInsideButton(
+            mouse.x,
+            mouse.y,
+            canvas.width / 2,
+            canvas.height * 0.65,
+            200,
+            54,
+          )) ||
+        (mission.playerShip === "choose" &&
+          state.playerClass === null &&
+          isInsideButton(
+            mouse.x,
+            mouse.y,
+            canvas.width / 2,
+            canvas.height * 0.75,
+            200,
+            46,
+          ));
     }
   } else if (state.gameState === "win" || state.gameState === "gameOver") {
     hovered = isInsideButton(
