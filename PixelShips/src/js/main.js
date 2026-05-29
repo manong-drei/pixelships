@@ -617,12 +617,15 @@ function tickBurstQueues(dt) {
 }
 
 function update(dt) {
+  // Handle campaign briefing state
+  if (state.gameState === "campaignBriefing") {
+    if (prevGameState !== "campaignBriefing") resetTypewriter();
+    updateTypewriter(dt);
+  }
+
+  // Handle playing state
   if (state.gameState === "playing") {
     if (prevGameState !== "playing") initGame();
-    if (state.gameState === "campaignBriefing") {
-      if (prevGameState !== "campaignBriefing") resetTypewriter();
-      updateTypewriter(dt);
-    }
     if (state.paused) return;
     state.stats.matchTimeMs += dt;
 
