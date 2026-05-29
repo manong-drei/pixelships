@@ -18,6 +18,8 @@ import {
   handlePauseClick,
   handleInstructionsClick,
   handleCampaignBriefingClick,
+  drawCampaignCompleteScreen,
+  handleCampaignCompleteClick,
   updateCursor,
 } from "./screens.js";
 import * as playerMod from "./player.js";
@@ -60,6 +62,7 @@ import {
 } from "./effects.js";
 import { drawHUD } from "./ui.js";
 import { createAiState, updateAi } from "./ai.js";
+import { updateTypewriter, resetTypewriter } from "./campaign.js";
 
 let lastTimestamp = 0;
 let prevGameState = null;
@@ -99,6 +102,8 @@ canvas.addEventListener("click", (event) => {
   else if (state.gameState === "modeHub") handleModeHubClick(mouseX, mouseY);
   else if (state.gameState === "campaignBriefing")
     handleCampaignBriefingClick(mouseX, mouseY);
+  else if (state.gameState === "campaignComplete")
+    handleCampaignCompleteClick(mouseX, mouseY);
   else if (state.gameState === "instructions")
     handleInstructionsClick(mouseX, mouseY);
   else if (state.gameState === "modeSelect")
@@ -614,6 +619,10 @@ function tickBurstQueues(dt) {
 function update(dt) {
   if (state.gameState === "playing") {
     if (prevGameState !== "playing") initGame();
+    if (state.gameState === "campaignBriefing") {
+      if (prevGameState !== "campaignBriefing") resetTypewriter();
+      updateTypewriter(dt);
+    }
     if (state.paused) return;
     state.stats.matchTimeMs += dt;
 
@@ -752,6 +761,8 @@ function draw() {
     drawModeHubScreen();
   } else if (state.gameState === "campaignBriefing") {
     drawCampaignBriefingScreen();
+  } else if (state.gameState === "campaignComplete") {
+    drawCampaignCompleteScreen();
   } else if (state.gameState === "instructions") {
     drawInstructionsScreen();
   } else if (state.gameState === "modeSelect") {

@@ -11,7 +11,6 @@ import {
   skipTypewriter,
   resetTypewriter,
 } from "./campaign.js";
-
 const CLASS_KEYS = Object.keys(shipConfig);
 
 const SHIP_INFO = {
@@ -989,19 +988,27 @@ function drawBadge(
 }
 
 export function drawWinScreen() {
-  const subtitle =
-    state.mode === "coop"
+  const subtitle = state.campaignMode
+    ? `MISSION ${campaign.currentMission + 1} COMPLETE`
+    : state.mode === "coop"
       ? "ALL WAVES CLEARED!"
       : `${shipConfig[player?.classKey]?.label ?? "P1"} wins!`;
-  drawEndScreen("#22c55e", "VICTORY!", subtitle);
+  const buttonLabel = state.campaignMode
+    ? campaign.currentMission >= missions.length - 1
+      ? "CAMPAIGN COMPLETE"
+      : "NEXT MISSION"
+    : "PLAY AGAIN";
+  drawEndScreen("#22c55e", "VICTORY!", subtitle, buttonLabel);
 }
 
 export function drawGameOverScreen() {
-  const subtitle =
-    state.mode === "coop"
+  const subtitle = state.campaignMode
+    ? `MISSION ${campaign.currentMission + 1} FAILED`
+    : state.mode === "coop"
       ? "Enemy fleet wins!"
       : `${shipConfig[enemy?.classKey]?.label ?? "Enemy"} wins!`;
-  drawEndScreen("#ef4444", "GAME OVER", subtitle);
+  const buttonLabel = state.campaignMode ? "RETRY MISSION" : "PLAY AGAIN";
+  drawEndScreen("#ef4444", "GAME OVER", subtitle, buttonLabel);
 }
 
 function formatTime(ms) {
@@ -1011,7 +1018,12 @@ function formatTime(ms) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function drawEndScreen(titleColor, titleText, subtitleText) {
+function drawEndScreen(
+  titleColor,
+  titleText,
+  subtitleText,
+  buttonLabel = "PLAY AGAIN",
+) {
   ctx.fillStyle = "rgba(15,23,42,0.95)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -1103,7 +1115,7 @@ function drawEndScreen(titleColor, titleText, subtitleText) {
 
   ctx.textBaseline = "alphabetic";
 
-  drawButton(cx, canvas.height * 0.79, 240, 50, "PLAY AGAIN", "#0ea5e9");
+  drawButton(cx, canvas.height * 0.79, 240, 50, buttonLabel, "#0ea5e9");
 }
 
 export function drawPauseScreen() {
@@ -1164,7 +1176,11 @@ export function handlePauseClick(mouseX, mouseY) {
   }
   if (isInsideButton(mouseX, mouseY, cx, cardY + cardH * 0.82, buttonW, 46)) {
     state.paused = false;
-    state.gameState = "modeSelect";
+    state.campaignMode = false;
+    campaign.shipChosen = false;
+    campaign.currentMission = 0;
+    campaign.completedMissions = [];
+    state.gameState = "modeHub";
     state.playerClass = null;
     state.player2Class = null;
     state.enemyClass = null;
@@ -1520,7 +1536,10 @@ export function handleSelectionClick(mouseX, mouseY) {
           state.playerClass = state.pendingClass;
           state.pendingClass = null;
           if (state.campaignMode) {
+            campaign.shipChosen = true;
+            resetTypewriter();
             state.gameState = "campaignBriefing";
+            return;
           }
           // Stay on selection screen — CPU now picks in pvc mode (non-campaign)
         } else if (isCpuTurn) {
@@ -1557,12 +1576,143 @@ export function handleSelectionClick(mouseX, mouseY) {
 export function handleEndClick(mouseX, mouseY) {
   const buttonCenterX = canvas.width / 2;
   const buttonCenterY = canvas.height * 0.79;
+
+  if (state.campaignMode && state.gameState === "win") {
+    // NEXT MISSION or CAMPAIGN COMPLETE
+    if (isInsideButton(mouseX, mouseY, buttonCenterX, buttonCenterY, 240, 50)) {
+      campaign.completedMissions.push(campaign.currentMission);
+      if (campaign.currentMission >= missions.length - 1) {
+        state.gameState = "campaignComplete";
+      } else {
+        campaign.currentMission++;
+        campaign.shipChosen = false;
+        state.playerClass = null;
+        state.enemyClass = null;
+        state.pendingClass = null;
+        resetTypewriter();
+        state.gameState = "campaignBriefing";
+      }
+      return;
+    }
+  }
+
+  if (state.campaignMode && state.gameState === "gameOver") {
+    // RETRY — same mission
+    if (isInsideButton(mouseX, mouseY, buttonCenterX, buttonCenterY, 240, 50)) {
+      campaign.shipChosen = false;
+      state.playerClass = null;
+      state.enemyClass = null;
+      state.pendingClass = null;
+      resetTypewriter();
+      state.gameState = "campaignBriefing";
+      return;
+    }
+  }
+
+  // Default — custom mode
   if (isInsideButton(mouseX, mouseY, buttonCenterX, buttonCenterY, 240, 50)) {
     state.gameState = "selection";
     state.playerClass = null;
     state.player2Class = null;
     state.enemyClass = null;
     state.pendingClass = null;
+  }
+}
+
+export function drawCampaignCompleteScreen() {
+  if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
+    ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  const cx = canvas.width / 2;
+
+  // Star decorations
+  ctx.fillStyle = "#f59e0b";
+  ctx.font = `${Math.max(20, Math.floor(canvas.width * 0.04))}px "Press Start 2P"`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("★  ★  ★", cx, canvas.height * 0.15);
+
+  // Title
+  const titleSize = Math.max(14, Math.floor(canvas.width * 0.026));
+  ctx.font = `${titleSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText("CAMPAIGN COMPLETE", cx, canvas.height * 0.25);
+
+  // Subtitle
+  const subSize = Math.max(8, Math.floor(canvas.width * 0.011));
+  ctx.font = `${subSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#94a3b8";
+  ctx.fillText("All 5 missions cleared, Captain.", cx, canvas.height * 0.33);
+
+  // Unlock card
+  const cardW = canvas.width * 0.52;
+  const cardH = canvas.height * 0.18;
+  const cardX = cx - cardW / 2;
+  const cardY = canvas.height * 0.4;
+
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+  ctx.fill();
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+  ctx.stroke();
+
+  const unlockTitleSize = Math.max(8, Math.floor(canvas.width * 0.011));
+  ctx.font = `${unlockTitleSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#f59e0b";
+  ctx.fillText("UNLOCKED", cx, cardY + cardH * 0.3);
+
+  const unlockDescSize = Math.max(7, Math.floor(canvas.width * 0.01));
+  ctx.font = `${unlockDescSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillText("Golden Ship Skin", cx, cardY + cardH * 0.58);
+
+  ctx.fillStyle = "#64748b";
+  ctx.fillText("Select it from any ship picker.", cx, cardY + cardH * 0.82);
+
+  // Buttons
+  drawButton(cx, canvas.height * 0.7, 260, 52, "RETURN TO MENU", "#475569");
+  drawButton(cx, canvas.height * 0.82, 260, 52, "REPLAY CAMPAIGN", "#f59e0b");
+
+  ctx.textBaseline = "alphabetic";
+}
+
+export function handleCampaignCompleteClick(mouseX, mouseY) {
+  const cx = canvas.width / 2;
+
+  // RETURN TO MENU
+  if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.7, 260, 52)) {
+    campaign.currentMission = 0;
+    campaign.completedMissions = [];
+    campaign.shipChosen = false;
+    state.campaignMode = false;
+    state.playerClass = null;
+    state.player2Class = null;
+    state.enemyClass = null;
+    state.pendingClass = null;
+    resetTypewriter();
+    state.gameState = "modeHub";
+    return;
+  }
+
+  // REPLAY CAMPAIGN
+  if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.82, 260, 52)) {
+    campaign.currentMission = 0;
+    campaign.completedMissions = [];
+    campaign.shipChosen = false;
+    state.playerClass = null;
+    state.enemyClass = null;
+    state.pendingClass = null;
+    resetTypewriter();
+    state.gameState = "campaignBriefing";
+    return;
   }
 }
 
@@ -1720,39 +1870,57 @@ export function updateCursor() {
         210,
         50,
       );
-    } else if (state.gameState === "campaignBriefing") {
-      const mission = missions[campaign.currentMission];
-      const canStart =
-        mission.playerShip !== "choose" || state.playerClass !== null;
-      hovered =
+    }
+  } else if (state.gameState === "campaignBriefing") {
+    const mission = missions[campaign.currentMission];
+    const cardX = canvas.width * 0.04;
+    const cardY = canvas.height * 0.12;
+    const cardW = canvas.width * 0.92;
+    const cardH = canvas.height * 0.72;
+    const leftPanelW = cardW * 0.33;
+    const dialogueBoxX = cardX + leftPanelW;
+    const dialogueBoxW = cardW * 0.67;
+    const dialogueBoxBottom = cardY + cardH * 0.58;
+    const contentX = dialogueBoxX + 24;
+    const dividerY = cardY + cardH * 0.58;
+    const contentCX = dialogueBoxX + dialogueBoxW / 2;
+    const canStart =
+      campaign.typewriterDone &&
+      (mission.playerShip !== "choose" || state.playerClass !== null);
+
+    hovered =
+      isInsideButton(
+        mouse.x,
+        mouse.y,
+        canvas.width * 0.08,
+        canvas.height * 0.055,
+        120,
+        40,
+      ) ||
+      (canStart &&
         isInsideButton(
           mouse.x,
           mouse.y,
-          canvas.width * 0.08,
-          canvas.height * 0.07,
-          120,
-          40,
-        ) ||
-        (canStart &&
-          isInsideButton(
-            mouse.x,
-            mouse.y,
-            canvas.width / 2,
-            canvas.height * 0.65,
-            200,
-            54,
-          )) ||
-        (mission.playerShip === "choose" &&
-          state.playerClass === null &&
-          isInsideButton(
-            mouse.x,
-            mouse.y,
-            canvas.width / 2,
-            canvas.height * 0.75,
-            200,
-            46,
-          ));
-    }
+          contentCX,
+          cardY + cardH * 0.88,
+          220,
+          50,
+        )) ||
+      (!campaign.typewriterDone &&
+        mouse.x >= dialogueBoxX &&
+        mouse.x <= dialogueBoxX + dialogueBoxW &&
+        mouse.y >= cardY &&
+        mouse.y <= dialogueBoxBottom) ||
+      (mission.playerShip === "choose" &&
+        !state.playerClass &&
+        isInsideButton(
+          mouse.x,
+          mouse.y,
+          contentX + 160,
+          dividerY + 66,
+          160,
+          36,
+        ));
   } else if (state.gameState === "win" || state.gameState === "gameOver") {
     hovered = isInsideButton(
       mouse.x,
