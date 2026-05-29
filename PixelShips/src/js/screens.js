@@ -3,8 +3,14 @@ import { state } from "./state.js";
 import { shipConfig } from "./shipConfig.js";
 import { player } from "./player.js";
 import { enemy } from "./enemy.js";
-import { getSplashSprite } from "./assets.js";
-import { campaign, missions } from "./campaign.js";
+import { getSplashSprite, getAdmiralSprite } from "./assets.js";
+import {
+  campaign,
+  missions,
+  getActiveDialogue,
+  skipTypewriter,
+  resetTypewriter,
+} from "./campaign.js";
 
 const CLASS_KEYS = Object.keys(shipConfig);
 
@@ -58,6 +64,30 @@ function hexAlpha(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+function drawWrappedText(
+  text,
+  visibleLength,
+  cx,
+  startY,
+  maxWidth,
+  lineHeight,
+) {
+  const visible = text.slice(0, visibleLength);
+  const words = visible.split(" ");
+  let line = "";
+  let y = startY;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, cx, y);
+      line = word;
+      y += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, cx, y);
+}
 export function drawTitleText(text) {
   const fontSize = Math.max(16, Math.floor(canvas.width * 0.045));
   ctx.font = `${fontSize}px "Press Start 2P"`;
@@ -217,6 +247,7 @@ export function handleModeHubClick(mouseX, mouseY) {
   }
 }
 export function drawCampaignBriefingScreen() {
+  // Background
   if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
     ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
   } else {
@@ -225,86 +256,239 @@ export function drawCampaignBriefingScreen() {
   }
 
   const mission = missions[campaign.currentMission];
+  const dialogue = getActiveDialogue();
   const cx = canvas.width / 2;
 
-  // Header
+  // — HEADER —
   const headerSize = Math.max(9, Math.floor(canvas.width * 0.013));
   ctx.font = `${headerSize}px "Press Start 2P"`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#f59e0b";
-  ctx.fillText("CAMPAIGN", cx, canvas.height * 0.1);
+  ctx.fillText("CAMPAIGN", cx, canvas.height * 0.08);
+
+  // — MAIN CARD —
+  const cardX = canvas.width * 0.04;
+  const cardY = canvas.height * 0.12;
+  const cardW = canvas.width * 0.92;
+  const cardH = canvas.height * 0.72;
+  const radius = 12;
+
+  // Card shadow
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.beginPath();
+  ctx.roundRect(cardX + 5, cardY + 5, cardW, cardH, radius);
+  ctx.fill();
+
+  // Card background
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, radius);
+  ctx.fill();
+  ctx.strokeStyle = "#1e3a5f";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, cardW, cardH, radius);
+  ctx.stroke();
+
+  // — LEFT PANEL (1/3) — Admiral sprite
+  const leftPanelW = cardW * 0.33;
+  const admiralSprite = getAdmiralSprite();
+
+  // Panel background tint
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.roundRect(cardX, cardY, leftPanelW, cardH, [radius, 0, 0, radius]);
+  ctx.fill();
+
+  // Sprite or placeholder
+  const spritepad = 16;
+  const spriteX = cardX + spritepad;
+  const spriteY = cardY + spritepad;
+  const spriteW = leftPanelW - spritepad * 2;
+  const spriteH = cardH - spritepad * 2;
+
+  if (
+    admiralSprite &&
+    admiralSprite.complete &&
+    admiralSprite.naturalWidth > 0
+  ) {
+    ctx.drawImage(admiralSprite, spriteX, spriteY, spriteW, spriteH);
+  } else {
+    // Placeholder box
+    ctx.fillStyle = "#1e293b";
+    ctx.beginPath();
+    ctx.roundRect(spriteX, spriteY, spriteW, spriteH, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(spriteX, spriteY, spriteW, spriteH, 8);
+    ctx.stroke();
+    const placeholderSize = Math.max(7, Math.floor(spriteW * 0.09));
+    ctx.font = `${placeholderSize}px "Press Start 2P"`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#334155";
+    ctx.fillText("ADMIRAL", spriteX + spriteW / 2, spriteY + spriteH / 2 - 14);
+    ctx.fillText("[SPRITE]", spriteX + spriteW / 2, spriteY + spriteH / 2 + 14);
+    ctx.textBaseline = "alphabetic";
+  }
+
+  // Vertical divider between panels
+  ctx.strokeStyle = "#1e3a5f";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cardX + leftPanelW, cardY + 16);
+  ctx.lineTo(cardX + leftPanelW, cardY + cardH - 16);
+  ctx.stroke();
+
+  // — RIGHT PANEL (2/3) —
+  const rightX = cardX + leftPanelW;
+  const rightW = cardW * 0.67;
+  const rightPad = 24;
+  const contentX = rightX + rightPad;
+  const contentW = rightW - rightPad * 2;
+  const contentCX = rightX + rightW / 2;
+
+  // Admiral label
+  const admiralLabelSize = Math.max(9, Math.floor(canvas.width * 0.012));
+  ctx.font = `${admiralLabelSize}px "Press Start 2P"`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#f59e0b";
+  ctx.fillText("ADMIRAL", contentX, cardY + 36);
+
+  // Divider under label
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.moveTo(contentX, cardY + 44);
+  ctx.lineTo(rightX + rightW - rightPad, cardY + 44);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Dialogue text (typewriter)
+  const dialogueSize = Math.max(8, Math.floor(canvas.width * 0.011));
+  ctx.font = `${dialogueSize}px "Press Start 2P"`;
+  ctx.fillStyle = "#e2e8f0";
+  ctx.textAlign = "left";
+  const dialogueStartY = cardY + 70;
+  const lineHeight = dialogueSize * 2;
+  drawWrappedText(
+    dialogue,
+    campaign.typewriterIndex,
+    contentX,
+    dialogueStartY,
+    contentW,
+    lineHeight,
+  );
+
+  // Blinking cursor while typing
+  if (!campaign.typewriterDone) {
+    const blinkOn = Math.floor(Date.now() / 500) % 2 === 0;
+    if (blinkOn) {
+      // measure where cursor lands after wrapping
+      const visibleText = dialogue.slice(0, campaign.typewriterIndex);
+      const words = visibleText.split(" ");
+      let line = "";
+      let cursorY = dialogueStartY;
+      for (const word of words) {
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width > contentW && line) {
+          cursorY += lineHeight;
+          line = word;
+        } else {
+          line = test;
+        }
+      }
+      const cursorX = contentX + ctx.measureText(line).width + 3;
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText("▌", cursorX, cursorY);
+    }
+  }
+
+  // Divider above mission info
+  ctx.strokeStyle = "#1e3a5f";
+  ctx.lineWidth = 1;
+  const dividerY = cardY + cardH * 0.58;
+  ctx.beginPath();
+  ctx.moveTo(contentX, dividerY);
+  ctx.lineTo(rightX + rightW - rightPad, dividerY);
+  ctx.stroke();
 
   // Mission title
-  const titleSize = Math.max(13, Math.floor(canvas.width * 0.022));
-  ctx.font = `${titleSize}px "Press Start 2P"`;
+  const missionTitleSize = Math.max(9, Math.floor(canvas.width * 0.013));
+  ctx.font = `${missionTitleSize}px "Press Start 2P"`;
+  ctx.textAlign = "left";
   ctx.fillStyle = "#f8fafc";
   ctx.fillText(
     `MISSION ${campaign.currentMission + 1} — "${mission.title.toUpperCase()}"`,
-    cx,
-    canvas.height * 0.2,
+    contentX,
+    dividerY + 24,
   );
 
-  // Briefing text (word-wrapped)
-  const briefSize = Math.max(8, Math.floor(canvas.width * 0.011));
-  ctx.font = `${briefSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#94a3b8";
-  drawWrappedText(
-    mission.briefing,
-    cx,
-    canvas.height * 0.3,
-    canvas.width * 0.6,
-    briefSize * 1.8,
-  );
-
-  // Enemy forces
-  const labelSize = Math.max(8, Math.floor(canvas.width * 0.011));
-  ctx.font = `${labelSize}px "Press Start 2P"`;
+  // Enemy
+  const infoSize = Math.max(8, Math.floor(canvas.width * 0.01));
+  ctx.font = `${infoSize}px "Press Start 2P"`;
   ctx.fillStyle = "#f87171";
   const enemyStr = mission.enemies
     .map(
       (e) => `${e.count}x ${e.type.charAt(0).toUpperCase() + e.type.slice(1)}`,
     )
     .join(", ");
-  ctx.fillText(`ENEMY: ${enemyStr}`, cx, canvas.height * 0.45);
+  ctx.fillText(`ENEMY: ${enemyStr}`, contentX, dividerY + 50);
 
-  // Your ship
+  // Your ship line
   ctx.fillStyle = "#38bdf8";
   if (mission.playerShip === "choose") {
-    const selectedLabel = state.playerClass
-      ? `YOUR SHIP: ${state.playerClass.toUpperCase()} [LOCKED IN]`
-      : "YOUR SHIP: [ SELECT ]";
-    ctx.fillText(selectedLabel, cx, canvas.height * 0.53);
+    if (state.playerClass) {
+      ctx.fillText(
+        `YOUR SHIP: ${state.playerClass.toUpperCase()}  \u2713`,
+        contentX,
+        dividerY + 74,
+      );
+    } else {
+      ctx.fillText("YOUR SHIP:", contentX, dividerY + 74);
+      drawButton(
+        contentX + 160,
+        dividerY + 66,
+        160,
+        36,
+        "SELECT VESSEL",
+        "#2775e3",
+      );
+    }
   } else {
     ctx.fillText(
       `YOUR SHIP: ${mission.playerShip.toUpperCase()} (ASSIGNED)`,
-      cx,
-      canvas.height * 0.53,
+      contentX,
+      dividerY + 74,
     );
   }
 
-  // Battle button
+  // Accept Mission button
   const canStart =
-    mission.playerShip !== "choose" || state.playerClass !== null;
+    campaign.typewriterDone &&
+    (mission.playerShip !== "choose" || state.playerClass !== null);
+  const acceptColor = canStart ? "#22c55e" : "#1e293b";
+  const acceptLabelColor = canStart ? null : "#334155";
   drawButton(
-    cx,
-    canvas.height * 0.65,
-    200,
-    54,
-    "BATTLE!",
-    canStart ? "#22c55e" : "#374151",
+    contentCX,
+    cardY + cardH * 0.88,
+    220,
+    50,
+    "ACCEPT MISSION",
+    acceptColor,
   );
 
-  // Select ship button (missions with "choose")
-  if (mission.playerShip === "choose" && state.playerClass === null) {
-    drawButton(cx, canvas.height * 0.75, 200, 46, "SELECT SHIP", "#2775e3");
-  }
-
-  // Progress dots
+  // — PROGRESS DOTS —
   const dotRadius = 7;
   const dotGap = 28;
   const dotsStartX = cx - ((missions.length - 1) * dotGap) / 2;
-  const dotY = canvas.height * 0.87;
+  const dotY = cardY + cardH + 28;
+
   for (let i = 0; i < missions.length; i++) {
     ctx.beginPath();
     ctx.arc(dotsStartX + i * dotGap, dotY, dotRadius, 0, Math.PI * 2);
@@ -320,23 +504,25 @@ export function drawCampaignBriefingScreen() {
 
   const dotLabelSize = Math.max(7, Math.floor(canvas.width * 0.009));
   ctx.font = `${dotLabelSize}px "Press Start 2P"`;
+  ctx.textAlign = "center";
   ctx.fillStyle = "#64748b";
   ctx.fillText(
     `${campaign.completedMissions.length} OF 5 COMPLETE`,
     cx,
-    dotY + dotRadius + 18,
+    dotY + dotRadius + 16,
   );
 
-  // Back button
+  // — BACK BUTTON —
   drawButton(
     canvas.width * 0.08,
-    canvas.height * 0.07,
+    canvas.height * 0.055,
     120,
     40,
     "BACK",
     "#475569",
   );
 }
+
 export function handleCampaignBriefingClick(mouseX, mouseY) {
   // BACK
   if (
@@ -344,36 +530,54 @@ export function handleCampaignBriefingClick(mouseX, mouseY) {
       mouseX,
       mouseY,
       canvas.width * 0.08,
-      canvas.height * 0.07,
+      canvas.height * 0.055,
       120,
       40,
     )
   ) {
     state.playerClass = null;
     state.pendingClass = null;
+    state.campaignMode = false;
+    campaign.shipChosen = false;
+    resetTypewriter();
     state.gameState = "modeHub";
     return;
   }
 
   const mission = missions[campaign.currentMission];
-  const canStart =
-    mission.playerShip !== "choose" || state.playerClass !== null;
 
-  // SELECT SHIP (choose missions only, before a class is picked)
-  if (mission.playerShip === "choose" && state.playerClass === null) {
+  // Click on dialogue box while typing — skip typewriter
+  const cardX = canvas.width * 0.04;
+  const cardY = canvas.height * 0.12;
+  const cardW = canvas.width * 0.92;
+  const cardH = canvas.height * 0.72;
+  const leftPanelW = cardW * 0.33;
+  const dialogueBoxX = cardX + leftPanelW;
+  const dialogueBoxW = cardW * 0.67;
+  const dialogueBoxBottom = cardY + cardH * 0.58;
+
+  if (
+    !campaign.typewriterDone &&
+    mouseX >= dialogueBoxX &&
+    mouseX <= dialogueBoxX + dialogueBoxW &&
+    mouseY >= cardY &&
+    mouseY <= dialogueBoxBottom
+  ) {
+    skipTypewriter();
+    return;
+  }
+
+  // SELECT VESSEL — choose missions before ship is picked
+  if (mission.playerShip === "choose" && !state.playerClass) {
+    const dividerY = cardY + cardH * 0.58;
+    const rightX = cardX + leftPanelW;
+    const rightW = cardW * 0.67;
+    const contentX = rightX + 24;
     if (
-      isInsideButton(
-        mouseX,
-        mouseY,
-        canvas.width / 2,
-        canvas.height * 0.75,
-        200,
-        46,
-      )
+      isInsideButton(mouseX, mouseY, contentX + 160, dividerY + 66, 160, 36)
     ) {
       state.campaignMode = true;
       state.mode = "pvc";
-      state.playerClass = null;
       state.pendingClass = null;
       state.enemyClass = null;
       state.gameState = "selection";
@@ -381,29 +585,34 @@ export function handleCampaignBriefingClick(mouseX, mouseY) {
     }
   }
 
-  // BATTLE
-  if (canStart) {
-    if (
-      isInsideButton(
-        mouseX,
-        mouseY,
-        canvas.width / 2,
-        canvas.height * 0.65,
-        200,
-        54,
-      )
-    ) {
-      if (mission.playerShip !== "choose") {
-        state.playerClass = mission.playerShip;
-      }
-      state.campaignMode = true;
-      state.mode = "pvc";
-      state.enemyClass = mission.enemies[0].type;
-      state.gameState = "playing";
-      return;
+  // ACCEPT MISSION
+  const canStart =
+    campaign.typewriterDone &&
+    (mission.playerShip !== "choose" || state.playerClass !== null);
+
+  if (
+    canStart &&
+    isInsideButton(
+      mouseX,
+      mouseY,
+      canvas.width / 2 + canvas.width * 0.04 + (canvas.width * 0.92 * 0.33) / 2,
+      cardY + cardH * 0.88,
+      220,
+      50,
+    )
+  ) {
+    if (mission.playerShip !== "choose") {
+      state.playerClass = mission.playerShip;
     }
+    state.campaignMode = true;
+    state.mode = "pvc";
+    state.enemyClass = mission.enemies[0].type;
+    state.pendingClass = null;
+    state.gameState = "playing";
+    return;
   }
 }
+
 export function drawModeSelectScreen() {
   if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {
     ctx.drawImage(selectionBgImage, 0, 0, canvas.width, canvas.height);
@@ -468,22 +677,6 @@ export function drawModeSelectScreen() {
     "BACK",
     "#475569",
   );
-}
-function drawWrappedText(text, cx, startY, maxWidth, lineHeight) {
-  const words = text.split(" ");
-  let line = "";
-  let y = startY;
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line, cx, y);
-      line = word;
-      y += lineHeight;
-    } else {
-      line = test;
-    }
-  }
-  if (line) ctx.fillText(line, cx, y);
 }
 export function drawSelectionScreen() {
   if (selectionBgImage.complete && selectionBgImage.naturalWidth > 0) {

@@ -104,3 +104,10 @@ for (const [key, src] of Object.entries(SPLASH_PATHS)) {
 export function getSplashSprite(classKey) {
   return splashImages[classKey] ?? null;
 }
+const ADMIRAL_SPRITE_PATH = "assets/portraits/admiral.png"; // TODO: replace with final path
+
+const admiralSprite = loadImage(ADMIRAL_SPRITE_PATH);
+
+export function getAdmiralSprite() {
+  return admiralSprite;
+}
