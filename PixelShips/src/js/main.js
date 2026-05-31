@@ -490,7 +490,16 @@ function drawWaveTransitionOverlay() {
 
 function initGame() {
   playerMod.initPlayer(state.playerClass);
-
+  if (state.campaignMode) {
+    const missionSpawns = {
+      0: { px: 0.3, py: 0.5 },
+    };
+    const spawn = missionSpawns[campaign.currentMission];
+    if (spawn) {
+      playerMod.player.x = canvas.width * spawn.px;
+      playerMod.player.y = canvas.height * spawn.py;
+    }
+  }
   if (state.mode === "coop") {
     enemyMod.initAlly(state.player2Class);
     // Place both players side by side on the left
@@ -521,6 +530,18 @@ function initGame() {
             );
       enemyMod.initWave(classes, yPositions);
       aiState = null;
+      if (campaign.currentMission === 2) {
+        for (const waveEnemy of enemyMod.waveEnemies) {
+          waveEnemy.x = canvas.width * 0.7;
+          waveEnemy.y = canvas.height * 0.5;
+        }
+      }
+      if (campaign.currentMission === 4) {
+        for (const waveEnemy of enemyMod.waveEnemies) {
+          waveEnemy.x = canvas.width * 0.5;
+          waveEnemy.y = canvas.height * 0.3;
+        }
+      }
     } else {
       enemyMod.initEnemy(state.enemyClass, state.mode !== "pvp");
       enemyMod.clearWaveEnemies();
@@ -545,14 +566,25 @@ function initGame() {
 }
 
 const backgroundImage = new Image();
-backgroundImage.src = "assets/background/arena1.png";
-
+backgroundImage.src = "assets/background/arena.png";
+const arenaImages = {
+  0: new Image(),
+  2: new Image(),
+  4: new Image(),
+};
+arenaImages[0].src = "assets/background/arena1.png";
+arenaImages[2].src = "assets/background/arena2.png";
+arenaImages[4].src = "assets/background/arena3.png";
 const titleBackgroundImage = new Image();
 titleBackgroundImage.src = "assets/background/title-background.png";
 
 function drawOcean() {
-  if (backgroundImage.complete && backgroundImage.naturalWidth > 0) {
-    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+  const activeImage =
+    state.campaignMode && arenaImages[state.campaignMission]
+      ? arenaImages[state.campaignMission]
+      : backgroundImage;
+  if (activeImage.complete && activeImage.naturalWidth > 0) {
+    ctx.drawImage(activeImage, 0, 0, canvas.width, canvas.height);
   } else {
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
     gradient.addColorStop(0, "#0c4a6e");
@@ -692,6 +724,7 @@ function update(dt) {
               waveEnemy.aiState,
               dt,
             );
+
             enemyMod.updateWaveShipWithInput(
               waveEnemy,
               aiResult.moveX,

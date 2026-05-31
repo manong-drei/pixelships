@@ -1,7 +1,7 @@
 import { canvas } from "./canvas.js";
 import { playerProjectiles } from "./projectiles.js";
 
-export const AI_HEALTH_MULT = 0.1;
+export const AI_HEALTH_MULT = 0.01;
 export const AI_DAMAGE_MULT = 0.95;
 
 const AIM_THRESHOLD_RAD = 0.25;

@@ -610,6 +610,7 @@ export function handleCampaignBriefingClick(mouseX, mouseY) {
     state.mode = "pvc";
     state.enemyClass = mission.enemies[0].type;
     state.pendingClass = null;
+    state.campaignMission = campaign.currentMission;
     state.gameState = "playing";
     return;
   }
@@ -992,7 +993,7 @@ function drawBadge(
 
 export function drawWinScreen() {
   const subtitle = state.campaignMode
-    ? `MISSION ${campaign.currentMission + 1} COMPLETE`
+    ? `MISSION ${campaign.currentMission + 1} COMPLETE\nWell done, Captain!`
     : state.mode === "coop"
       ? "ALL WAVES CLEARED!"
       : `${shipConfig[player?.classKey]?.label ?? "P1"} wins!`;
@@ -1651,38 +1652,38 @@ export function drawCampaignCompleteScreen() {
   ctx.fillStyle = "#94a3b8";
   ctx.fillText("All 5 missions cleared, Captain.", cx, canvas.height * 0.33);
 
-  // Unlock card
+  // Card
   const cardW = canvas.width * 0.52;
-  const cardH = canvas.height * 0.18;
+  const cardH = canvas.height * 0.28;
   const cardX = cx - cardW / 2;
   const cardY = canvas.height * 0.4;
+  const radius = 12;
+
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.beginPath();
+  ctx.roundRect(cardX + 4, cardY + 4, cardW, cardH, radius);
+  ctx.fill();
 
   ctx.fillStyle = "#0f172a";
   ctx.beginPath();
-  ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+  ctx.roundRect(cardX, cardY, cardW, cardH, radius);
   ctx.fill();
   ctx.strokeStyle = "#f59e0b";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.roundRect(cardX, cardY, cardW, cardH, 10);
+  ctx.roundRect(cardX, cardY, cardW, cardH, radius);
   ctx.stroke();
 
-  const unlockTitleSize = Math.max(8, Math.floor(canvas.width * 0.011));
-  ctx.font = `${unlockTitleSize}px "Press Start 2P"`;
-  ctx.fillStyle = "#f59e0b";
-  ctx.fillText("UNLOCKED", cx, cardY + cardH * 0.3);
-
-  const unlockDescSize = Math.max(7, Math.floor(canvas.width * 0.01));
-  ctx.font = `${unlockDescSize}px "Press Start 2P"`;
+  const congSize = Math.max(7, Math.floor(canvas.width * 0.01));
+  ctx.font = `${congSize}px "Press Start 2P"`;
   ctx.fillStyle = "#f8fafc";
-  ctx.fillText("Golden Ship Skin", cx, cardY + cardH * 0.58);
+  ctx.textBaseline = "middle";
+  ctx.fillText("Outstanding work, Captain.", cx, cardY + cardH * 0.35);
+  ctx.fillStyle = "#94a3b8";
+  ctx.fillText("The seas belong to us.", cx, cardY + cardH * 0.65);
 
-  ctx.fillStyle = "#64748b";
-  ctx.fillText("Select it from any ship picker.", cx, cardY + cardH * 0.82);
-
-  // Buttons
-  drawButton(cx, canvas.height * 0.7, 260, 52, "RETURN TO MENU", "#475569");
-  drawButton(cx, canvas.height * 0.82, 260, 52, "REPLAY CAMPAIGN", "#f59e0b");
+  drawButton(cx, canvas.height * 0.76, 260, 52, "RETURN TO MENU", "#475569");
+  drawButton(cx, canvas.height * 0.88, 260, 52, "REPLAY CAMPAIGN", "#f59e0b");
 
   ctx.textBaseline = "alphabetic";
 }
@@ -1691,7 +1692,7 @@ export function handleCampaignCompleteClick(mouseX, mouseY) {
   const cx = canvas.width / 2;
 
   // RETURN TO MENU
-  if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.7, 260, 52)) {
+  if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.76, 260, 52)) {
     campaign.currentMission = 0;
     campaign.completedMissions = [];
     campaign.shipChosen = false;
@@ -1706,7 +1707,7 @@ export function handleCampaignCompleteClick(mouseX, mouseY) {
   }
 
   // REPLAY CAMPAIGN
-  if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.82, 260, 52)) {
+  if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.88, 260, 52)) {
     campaign.currentMission = 0;
     campaign.completedMissions = [];
     campaign.shipChosen = false;
