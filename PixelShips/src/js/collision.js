@@ -23,9 +23,9 @@ function explode(projectile, size) {
 const BLAST_RADIUS = 60;
 
 const EXPLOSION_SIZE = {
-  basic:   40,
+  basic: 40,
   torpedo: 128,
-  bomb:    128,
+  bomb: 128,
 };
 
 function checkGameOver() {
@@ -44,7 +44,7 @@ export function checkCollisions() {
 
   const ally = enemyMod.ally;
 
-  if (state.mode === "coop") {
+  if (state.mode === "coop" || state.campaignMode) {
     checkCoopCollisions(ally);
     return;
   }
@@ -97,8 +97,10 @@ export function checkCollisions() {
     if (projectile.type === "bomb") {
       if (!projectile.detonating) continue;
       explode(projectile, EXPLOSION_SIZE.bomb);
-      if (player.health > 0 &&
-        Math.hypot(projectile.x - player.x, projectile.y - player.y) < BLAST_RADIUS
+      if (
+        player.health > 0 &&
+        Math.hypot(projectile.x - player.x, projectile.y - player.y) <
+          BLAST_RADIUS
       ) {
         const dmg = Math.min(projectile.damage, player.health);
         player.health -= dmg;
@@ -108,7 +110,8 @@ export function checkCollisions() {
       projectile.active = false;
       continue;
     }
-    if (player.health > 0 &&
+    if (
+      player.health > 0 &&
       overlaps(
         projectile.x,
         projectile.y,
@@ -139,7 +142,10 @@ function checkCoopCollisions(ally) {
       if (projectile.type === "bomb") {
         if (!projectile.detonating) continue;
         explode(projectile, EXPLOSION_SIZE.bomb);
-        if (Math.hypot(projectile.x - waveEnemy.x, projectile.y - waveEnemy.y) < BLAST_RADIUS) {
+        if (
+          Math.hypot(projectile.x - waveEnemy.x, projectile.y - waveEnemy.y) <
+          BLAST_RADIUS
+        ) {
           const dmg = Math.min(projectile.damage, waveEnemy.health);
           waveEnemy.health -= dmg;
           state.stats.p1DamageDealt += dmg;
@@ -147,10 +153,18 @@ function checkCoopCollisions(ally) {
         projectile.active = false;
         break;
       }
-      if (overlaps(
-        projectile.x, projectile.y, projectile.width, projectile.height,
-        waveEnemy.x, waveEnemy.y, waveEnemy.hitboxW, waveEnemy.hitboxH,
-      )) {
+      if (
+        overlaps(
+          projectile.x,
+          projectile.y,
+          projectile.width,
+          projectile.height,
+          waveEnemy.x,
+          waveEnemy.y,
+          waveEnemy.hitboxW,
+          waveEnemy.hitboxH,
+        )
+      ) {
         explode(projectile, EXPLOSION_SIZE[projectile.type]);
         const dmg = Math.min(projectile.damage, waveEnemy.health);
         waveEnemy.health -= dmg;
@@ -167,15 +181,19 @@ function checkCoopCollisions(ally) {
     if (projectile.type === "bomb") {
       if (!projectile.detonating) continue;
       explode(projectile, EXPLOSION_SIZE.bomb);
-      if (player.health > 0 &&
-        Math.hypot(projectile.x - player.x, projectile.y - player.y) < BLAST_RADIUS
+      if (
+        player.health > 0 &&
+        Math.hypot(projectile.x - player.x, projectile.y - player.y) <
+          BLAST_RADIUS
       ) {
         const dmg = Math.min(projectile.damage, player.health);
         player.health -= dmg;
         state.stats.p2DamageDealt += dmg;
         checkGameOver();
       }
-      if (ally && ally.health > 0 &&
+      if (
+        ally &&
+        ally.health > 0 &&
         Math.hypot(projectile.x - ally.x, projectile.y - ally.y) < BLAST_RADIUS
       ) {
         const dmg = Math.min(projectile.damage, ally.health);
@@ -185,10 +203,17 @@ function checkCoopCollisions(ally) {
       projectile.active = false;
       continue;
     }
-    if (player.health > 0 &&
+    if (
+      player.health > 0 &&
       overlaps(
-        projectile.x, projectile.y, projectile.width, projectile.height,
-        player.x, player.y, player.hitboxW, player.hitboxH,
+        projectile.x,
+        projectile.y,
+        projectile.width,
+        projectile.height,
+        player.x,
+        player.y,
+        player.hitboxW,
+        player.hitboxH,
       )
     ) {
       explode(projectile, EXPLOSION_SIZE[projectile.type]);
@@ -199,10 +224,18 @@ function checkCoopCollisions(ally) {
       checkGameOver();
       continue;
     }
-    if (ally && ally.health > 0 &&
+    if (
+      ally &&
+      ally.health > 0 &&
       overlaps(
-        projectile.x, projectile.y, projectile.width, projectile.height,
-        ally.x, ally.y, ally.hitboxW, ally.hitboxH,
+        projectile.x,
+        projectile.y,
+        projectile.width,
+        projectile.height,
+        ally.x,
+        ally.y,
+        ally.hitboxW,
+        ally.hitboxH,
       )
     ) {
       explode(projectile, EXPLOSION_SIZE[projectile.type]);

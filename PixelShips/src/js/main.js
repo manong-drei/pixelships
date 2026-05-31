@@ -62,7 +62,12 @@ import {
 } from "./effects.js";
 import { drawHUD } from "./ui.js";
 import { createAiState, updateAi } from "./ai.js";
-import { updateTypewriter, resetTypewriter } from "./campaign.js";
+import {
+  updateTypewriter,
+  resetTypewriter,
+  missions,
+  campaign,
+} from "./campaign.js";
 
 let lastTimestamp = 0;
 let prevGameState = null;
@@ -188,7 +193,9 @@ function fireBasicAttack() {
 
   if (player.classKey === "carrier") {
     const carrierTarget =
-      state.mode === "coop" ? getNearestWaveEnemy(player) : enemy;
+      state.mode === "coop" || state.campaignMode
+        ? getNearestWaveEnemy(player)
+        : enemy;
     if (!carrierTarget || player.fireCooldown > 0) return;
     const deltaX = carrierTarget.x - player.x;
     const deltaY = carrierTarget.y - player.y;
@@ -364,7 +371,7 @@ function clampShipToCanvas(ship) {
 function resolveShipCollisions() {
   const liveShips = [];
   if (playerMod.player?.health > 0) liveShips.push(playerMod.player);
-  if (state.mode === "coop") {
+  if (state.mode === "coop" || state.campaignMode) {
     if (enemyMod.ally?.health > 0) liveShips.push(enemyMod.ally);
     for (const waveEnemy of enemyMod.waveEnemies) {
       if (waveEnemy.health > 0) liveShips.push(waveEnemy);
@@ -497,9 +504,28 @@ function initGame() {
     spawnNextWave();
     aiState = null;
   } else {
-    enemyMod.initEnemy(state.enemyClass, state.mode !== "pvp");
-    enemyMod.clearWaveEnemies();
-    aiState = state.mode !== "pvp" ? createAiState() : null;
+    if (state.campaignMode) {
+      const missionEnemies = missions[campaign.currentMission].enemies;
+      const classes = missionEnemies.flatMap((e) =>
+        Array(e.count).fill(e.type),
+      );
+      const count = classes.length;
+      const padding = canvas.height * 0.15;
+      const yPositions =
+        count === 1
+          ? [canvas.height / 2]
+          : Array.from(
+              { length: count },
+              (_, i) =>
+                padding + ((canvas.height - padding * 2) / (count - 1)) * i,
+            );
+      enemyMod.initWave(classes, yPositions);
+      aiState = null;
+    } else {
+      enemyMod.initEnemy(state.enemyClass, state.mode !== "pvp");
+      enemyMod.clearWaveEnemies();
+      aiState = state.mode !== "pvp" ? createAiState() : null;
+    }
   }
 
   clearProjectiles();
@@ -701,43 +727,78 @@ function update(dt) {
         updateAllySkills(dt);
       }
     } else {
-      // pvc — AI controls single enemy
-      const liveTargets = [];
-      if (playerMod.player && playerMod.player.health > 0)
-        liveTargets.push(playerMod.player);
-
-      if (
-        liveTargets.length > 0 &&
-        enemyMod.enemy &&
-        enemyMod.enemy.health > 0 &&
-        aiState
-      ) {
-        const ai = updateAi(enemyMod.enemy, liveTargets, aiState, dt);
-        enemyMod.updateEnemyWithInput(ai.moveX, ai.moveY, dt);
-        if (enemyMod.enemy) {
-          enemyMod.enemy.dir.x = ai.aimX;
-          enemyMod.enemy.dir.y = ai.aimY;
-        }
-        if (ai.fire) {
-          if (enemyMod.enemy?.classKey === "carrier") {
-            fireAiCarrierAttack(liveTargets[0]);
-          } else {
-            fireEnemyAttack();
-          }
-        }
-        if (ai.useSkill) {
-          if (enemyMod.enemy?.classKey === "carrier") {
-            const skillTarget = liveTargets.reduce((lowest, target) =>
-              target.health < lowest.health ? target : lowest,
+      if (state.campaignMode) {
+        // campaign — AI controls waveEnemies, no ally
+        const liveTargets = [];
+        if (playerMod.player && playerMod.player.health > 0)
+          liveTargets.push(playerMod.player);
+        for (const waveEnemy of enemyMod.waveEnemies) {
+          if (waveEnemy.health <= 0) continue;
+          if (liveTargets.length > 0) {
+            const aiResult = updateAi(
+              waveEnemy,
+              liveTargets,
+              waveEnemy.aiState,
+              dt,
             );
-            launchEnemyPlanes(skillTarget);
-          } else {
-            triggerEnemySkill();
+            enemyMod.updateWaveShipWithInput(
+              waveEnemy,
+              aiResult.moveX,
+              aiResult.moveY,
+              dt,
+            );
+            waveEnemy.dir.x = aiResult.aimX;
+            waveEnemy.dir.y = aiResult.aimY;
+            if (aiResult.fire) fireWaveEnemyAttack(waveEnemy);
           }
         }
-        if (ai.toggleMode) toggleEnemyAcMode();
-      } else if (enemyMod.enemy) {
-        enemyMod.updateEnemyWithInput(0, 0, dt);
+        if (
+          enemyMod.waveEnemies.length > 0 &&
+          enemyMod.waveEnemies.every((e) => e.health <= 0)
+        ) {
+          state.gameState = "win";
+        }
+        if (!playerMod.player || playerMod.player.health <= 0)
+          state.gameState = "gameOver";
+      } else {
+        // pvc — AI controls single enemy
+        const liveTargets = [];
+        if (playerMod.player && playerMod.player.health > 0)
+          liveTargets.push(playerMod.player);
+
+        if (
+          liveTargets.length > 0 &&
+          enemyMod.enemy &&
+          enemyMod.enemy.health > 0 &&
+          aiState
+        ) {
+          const ai = updateAi(enemyMod.enemy, liveTargets, aiState, dt);
+          enemyMod.updateEnemyWithInput(ai.moveX, ai.moveY, dt);
+          if (enemyMod.enemy) {
+            enemyMod.enemy.dir.x = ai.aimX;
+            enemyMod.enemy.dir.y = ai.aimY;
+          }
+          if (ai.fire) {
+            if (enemyMod.enemy?.classKey === "carrier") {
+              fireAiCarrierAttack(liveTargets[0]);
+            } else {
+              fireEnemyAttack();
+            }
+          }
+          if (ai.useSkill) {
+            if (enemyMod.enemy?.classKey === "carrier") {
+              const skillTarget = liveTargets.reduce((lowest, target) =>
+                target.health < lowest.health ? target : lowest,
+              );
+              launchEnemyPlanes(skillTarget);
+            } else {
+              triggerEnemySkill();
+            }
+          }
+          if (ai.toggleMode) toggleEnemyAcMode();
+        } else if (enemyMod.enemy) {
+          enemyMod.updateEnemyWithInput(0, 0, dt);
+        }
       }
     }
 
@@ -779,7 +840,7 @@ function draw() {
     drawPlanes();
     drawEnemyPlanes();
     playerMod.drawPlayer();
-    if (state.mode === "coop") {
+    if (state.mode === "coop" || state.campaignMode) {
       enemyMod.drawWaveEnemies();
       if (enemyMod.ally) enemyMod.drawAlly();
     } else {
@@ -795,7 +856,7 @@ function draw() {
     drawOcean();
     drawBoundaryZone();
     playerMod.drawPlayer();
-    if (state.mode === "coop") {
+    if (state.mode === "coop" || state.campaignMode) {
       enemyMod.drawWaveEnemies();
       if (enemyMod.ally) enemyMod.drawAlly();
     } else {
@@ -806,7 +867,7 @@ function draw() {
     drawOcean();
     drawBoundaryZone();
     playerMod.drawPlayer();
-    if (state.mode === "coop") {
+    if (state.mode === "coop" || state.campaignMode) {
       enemyMod.drawWaveEnemies();
       if (enemyMod.ally) enemyMod.drawAlly();
     } else {
