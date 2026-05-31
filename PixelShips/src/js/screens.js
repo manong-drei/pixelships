@@ -10,6 +10,7 @@ import {
   getActiveDialogue,
   skipTypewriter,
   resetTypewriter,
+  getAdmiralExpression,
 } from "./campaign.js";
 const CLASS_KEYS = Object.keys(shipConfig);
 
@@ -291,9 +292,11 @@ export function drawCampaignBriefingScreen() {
   ctx.stroke();
 
   // — LEFT PANEL (1/3) — Admiral sprite
+  // — LEFT PANEL (1/3) — Admiral sprite
   const leftPanelW = cardW * 0.33;
-  const admiralSprite = getAdmiralSprite();
-
+  const sprites = getAdmiralSprite();
+  const expression = getAdmiralExpression();
+  const admiralSprite = sprites[expression];
   // Panel background tint
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.beginPath();

@@ -102,3 +102,10 @@ export function resetTypewriter() {
   campaign.typewriterTimer = 0;
   campaign.typewriterDone = false;
 }
+
+export function getAdmiralExpression() {
+  const total = getActiveDialogue().length;
+  if (campaign.typewriterDone) return "serious";
+  if (campaign.typewriterIndex >= Math.floor(total / 2)) return "confident";
+  return "neutral";
+}

@@ -104,10 +104,18 @@ for (const [key, src] of Object.entries(SPLASH_PATHS)) {
 export function getSplashSprite(classKey) {
   return splashImages[classKey] ?? null;
 }
-const ADMIRAL_SPRITE_PATH = "assets/portraits/admiral.png"; // TODO: replace with final path
+const ADMIRAL_NEUTRAL_PATH = "assets/admiral/neutral.png";
+const ADMIRAL_CONFIDENT_PATH = "assets/admiral/confident.png";
+const ADMIRAL_SERIOUS_PATH = "assets/admiral/serious.png";
 
-const admiralSprite = loadImage(ADMIRAL_SPRITE_PATH);
+const admiralNeutral = loadImage(ADMIRAL_NEUTRAL_PATH);
+const admiralConfident = loadImage(ADMIRAL_CONFIDENT_PATH);
+const admiralSerious = loadImage(ADMIRAL_SERIOUS_PATH);
 
 export function getAdmiralSprite() {
-  return admiralSprite;
+  return {
+    neutral: admiralNeutral,
+    confident: admiralConfident,
+    serious: admiralSerious,
+  };
 }
