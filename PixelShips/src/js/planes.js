@@ -98,7 +98,6 @@ function advancePlane(plane, spawnProjectile, dt) {
       const dropDeltaX = predictedX - plane.x;
       const dropDeltaY = predictedY - plane.y;
       const dropDist = Math.hypot(dropDeltaX, dropDeltaY) || 1;
-      playSFX("torpedo");
       spawnProjectile(
         plane.x,
         plane.y,
@@ -107,8 +106,8 @@ function advancePlane(plane, spawnProjectile, dt) {
         ProjectileType.torpedo.damage,
         "torpedo",
       );
+      playSFX("torpedo");
       plane.dropped = true;
-      playSFX("bomb_drop");
       plane.returning = true;
     }
     const margin = PLANE_DRAW_SIZE / 2;
@@ -148,8 +147,8 @@ function advancePlane(plane, spawnProjectile, dt) {
           ProjectileType.bomb.damage,
           "bomb",
         );
-        plane.dropped = true;
         playSFX("bomb_drop");
+        plane.dropped = true;
         plane.returning = true;
       }
     }

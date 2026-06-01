@@ -15,6 +15,7 @@ const AUDIO_PATHS = {
   overdrive: "assets/audio/overdrive.mp3",
   barrage: "assets/audio/barrage.mp3",
   wave_clear: "assets/audio/wave_clear.mp3",
+  button_click: "assets/audio/button.mp3",
 };
 
 export async function initAudio() {

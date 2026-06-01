@@ -41,6 +41,7 @@ export function triggerSkill() {
   if (!player || player.health <= 0) return;
   if (player.classKey === "carrier") {
     launchPlanes();
+    playSFX("plane_launch");
     return;
   }
   if (player.skillTimer > 0) return;
@@ -66,6 +67,7 @@ export function triggerEnemySkill() {
   if (!enemy || enemy.health <= 0) return;
   if (enemy.classKey === "carrier") {
     launchEnemyPlanes();
+    playSFX("plane_launch");
     return;
   }
   if (enemy.skillTimer > 0) return;
@@ -91,6 +93,7 @@ export function triggerAllySkill() {
   if (!ally || ally.health <= 0) return;
   if (ally.classKey === "carrier") {
     launchAllyPlanes();
+    playSFX("plane_launch");
     return;
   }
   if (ally.skillTimer > 0) return;

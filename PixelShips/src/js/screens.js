@@ -12,6 +12,7 @@ import {
   resetTypewriter,
   getAdmiralExpression,
 } from "./campaign.js";
+import { playSFX } from "./audio.js";
 const CLASS_KEYS = Object.keys(shipConfig);
 
 const SHIP_INFO = {
@@ -222,6 +223,7 @@ export function handleModeHubClick(mouseX, mouseY) {
       40,
     )
   ) {
+    playSFX("button_click");
     state.gameState = "start";
     return;
   }
@@ -234,6 +236,7 @@ export function handleModeHubClick(mouseX, mouseY) {
 
   // CAMPAIGN
   if (isInsideButton(mouseX, mouseY, btnX, btn1Y, btnW, btnH)) {
+    playSFX("button_click");
     // For now, placeholder — goes to campaign briefing
     // (We'll add the campaign briefing screen later)
     state.gameState = "campaignBriefing";
@@ -242,6 +245,7 @@ export function handleModeHubClick(mouseX, mouseY) {
 
   // CUSTOM
   if (isInsideButton(mouseX, mouseY, btnX, btn2Y, btnW, btnH)) {
+    playSFX("button_click");
     state.gameState = "modeSelect";
     return;
   }
@@ -537,6 +541,7 @@ export function handleCampaignBriefingClick(mouseX, mouseY) {
       40,
     )
   ) {
+    playSFX("button_click");
     state.playerClass = null;
     state.pendingClass = null;
     state.campaignMode = false;
@@ -578,6 +583,7 @@ export function handleCampaignBriefingClick(mouseX, mouseY) {
     if (
       isInsideButton(mouseX, mouseY, contentX + 160, dividerY + 66, 160, 36)
     ) {
+      playSFX("button_click");
       state.campaignMode = true;
       state.mode = "pvc";
       state.pendingClass = null;
@@ -603,6 +609,7 @@ export function handleCampaignBriefingClick(mouseX, mouseY) {
       50,
     )
   ) {
+    playSFX("button_click");
     if (mission.playerShip !== "choose") {
       state.playerClass = mission.playerShip;
     }
@@ -1175,10 +1182,12 @@ export function handlePauseClick(mouseX, mouseY) {
   const buttonW = canvas.width * 0.34 * 0.72;
 
   if (isInsideButton(mouseX, mouseY, cx, cardY + cardH * 0.57, buttonW, 46)) {
+    playSFX("button_click");
     state.paused = false;
     return;
   }
   if (isInsideButton(mouseX, mouseY, cx, cardY + cardH * 0.82, buttonW, 46)) {
+    playSFX("button_click");
     state.paused = false;
     state.campaignMode = false;
     campaign.shipChosen = false;
@@ -1365,6 +1374,7 @@ export function handleInstructionsClick(mouseX, mouseY) {
       40,
     )
   ) {
+    playSFX("button_click");
     state.gameState = "start";
   }
 }
@@ -1380,6 +1390,7 @@ export function handleStartClick(mouseX, mouseY) {
       54,
     )
   ) {
+    playSFX("button_click");
     state.gameState = "modeHub";
     return;
   }
@@ -1393,6 +1404,7 @@ export function handleStartClick(mouseX, mouseY) {
       54,
     )
   ) {
+    playSFX("button_click");
     state.gameState = "instructions";
     return;
   }
@@ -1406,6 +1418,7 @@ export function handleStartClick(mouseX, mouseY) {
       54,
     )
   ) {
+    playSFX("button_click");
     window.close();
   }
 }
@@ -1422,6 +1435,7 @@ export function handleModeSelectClick(mouseX, mouseY) {
       40,
     )
   ) {
+    playSFX("button_click");
     state.gameState = "modeHub";
     return;
   }
@@ -1436,6 +1450,7 @@ export function handleModeSelectClick(mouseX, mouseY) {
   if (isInsideButton(mouseX, mouseY, startX, buttonY, buttonW, buttonH)) {
     state.mode = "pvc";
     state.gameState = "selection";
+    playSFX("button_click");
     return;
   }
   if (
@@ -1448,6 +1463,7 @@ export function handleModeSelectClick(mouseX, mouseY) {
       buttonH,
     )
   ) {
+    playSFX("button_click");
     state.mode = "coop";
     state.gameState = "selection";
     return;
@@ -1462,6 +1478,7 @@ export function handleModeSelectClick(mouseX, mouseY) {
       buttonH,
     )
   ) {
+    playSFX("button_click");
     state.mode = "pvp";
     state.gameState = "selection";
     return;
@@ -1495,6 +1512,7 @@ export function handleSelectionClick(mouseX, mouseY) {
       state.playerClass = null;
       state.enemyClass = null;
     }
+    playSFX("button_click");
     return;
   }
 
@@ -1513,6 +1531,7 @@ export function handleSelectionClick(mouseX, mouseY) {
       state.enemyClass = randomClass();
       state.pendingClass = null;
       state.gameState = "playing";
+      playSFX("button_click");
       return;
     }
   }
@@ -1537,6 +1556,7 @@ export function handleSelectionClick(mouseX, mouseY) {
         )
       ) {
         if (isP1Turn) {
+          playSFX("button_click");
           state.playerClass = state.pendingClass;
           state.pendingClass = null;
           if (state.campaignMode) {
@@ -1550,16 +1570,19 @@ export function handleSelectionClick(mouseX, mouseY) {
           state.enemyClass = state.pendingClass;
           state.pendingClass = null;
           state.gameState = "playing";
+          playSFX("button_click");
         } else if (isP2CoopTurn) {
           state.player2Class = state.pendingClass;
           state.pendingClass = null;
           state.enemyClass = null;
           state.gameState = "playing";
+          playSFX("button_click");
         } else {
           // pvp P2 turn
           state.enemyClass = state.pendingClass;
           state.pendingClass = null;
           state.gameState = "playing";
+          playSFX("button_click");
         }
         return;
       }
@@ -1596,6 +1619,7 @@ export function handleEndClick(mouseX, mouseY) {
         resetTypewriter();
         state.gameState = "campaignBriefing";
       }
+      playSFX("button_click");
       return;
     }
   }
@@ -1603,6 +1627,7 @@ export function handleEndClick(mouseX, mouseY) {
   if (state.campaignMode && state.gameState === "gameOver") {
     // RETRY — same mission
     if (isInsideButton(mouseX, mouseY, buttonCenterX, buttonCenterY, 240, 50)) {
+      playSFX("button_click");
       campaign.shipChosen = false;
       state.playerClass = null;
       state.enemyClass = null;
@@ -1615,6 +1640,7 @@ export function handleEndClick(mouseX, mouseY) {
 
   // Default — custom mode
   if (isInsideButton(mouseX, mouseY, buttonCenterX, buttonCenterY, 240, 50)) {
+    playSFX("button_click");
     state.gameState = "selection";
     state.playerClass = null;
     state.player2Class = null;
@@ -1693,6 +1719,7 @@ export function handleCampaignCompleteClick(mouseX, mouseY) {
 
   // RETURN TO MENU
   if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.76, 260, 52)) {
+    playSFX("button_click");
     campaign.currentMission = 0;
     campaign.completedMissions = [];
     campaign.shipChosen = false;
@@ -1708,6 +1735,7 @@ export function handleCampaignCompleteClick(mouseX, mouseY) {
 
   // REPLAY CAMPAIGN
   if (isInsideButton(mouseX, mouseY, cx, canvas.height * 0.88, 260, 52)) {
+    playSFX("button_click");
     campaign.currentMission = 0;
     campaign.completedMissions = [];
     campaign.shipChosen = false;
