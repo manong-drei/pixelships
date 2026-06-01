@@ -1,6 +1,10 @@
 import { canvas, ctx } from "./canvas.js";
-import { spawnPlayerProjectile, spawnEnemyProjectile, ProjectileType } from "./projectiles.js";
-
+import {
+  spawnPlayerProjectile,
+  spawnEnemyProjectile,
+  ProjectileType,
+} from "./projectiles.js";
+import { playSFX } from "./audio.js";
 const planeImage = new Image();
 planeImage.src = "assets/ships/carrier/torpedo_bomber.png";
 
@@ -94,6 +98,7 @@ function advancePlane(plane, spawnProjectile, dt) {
       const dropDeltaX = predictedX - plane.x;
       const dropDeltaY = predictedY - plane.y;
       const dropDist = Math.hypot(dropDeltaX, dropDeltaY) || 1;
+      playSFX("torpedo");
       spawnProjectile(
         plane.x,
         plane.y,
@@ -103,6 +108,7 @@ function advancePlane(plane, spawnProjectile, dt) {
         "torpedo",
       );
       plane.dropped = true;
+      playSFX("bomb_drop");
       plane.returning = true;
     }
     const margin = PLANE_DRAW_SIZE / 2;
@@ -134,8 +140,16 @@ function advancePlane(plane, spawnProjectile, dt) {
         plane.y - plane.committedY,
       );
       if (dropDist < 20) {
-        spawnProjectile(plane.x, plane.y, 0, 0, ProjectileType.bomb.damage, "bomb");
+        spawnProjectile(
+          plane.x,
+          plane.y,
+          0,
+          0,
+          ProjectileType.bomb.damage,
+          "bomb",
+        );
         plane.dropped = true;
+        playSFX("bomb_drop");
         plane.returning = true;
       }
     }

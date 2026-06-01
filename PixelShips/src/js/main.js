@@ -69,6 +69,14 @@ import {
   campaign,
 } from "./campaign.js";
 
+import {
+  initAudio,
+  resumeAudioContext,
+  playSFX,
+  playBGM,
+  stopBGM,
+} from "./audio.js";
+
 let lastTimestamp = 0;
 let prevGameState = null;
 let aiState = null;
@@ -80,6 +88,9 @@ const allyBurstQueue = [];
 
 const WAVE_ENEMY_POOL = ["destroyer", "cruiser", "battleship"];
 const WAVE_TRANSITION_MS = 2000;
+
+initAudio().catch(console.error);
+export const keys = {};
 
 canvas.addEventListener("mousemove", (event) => {
   const canvasBounds = canvas.getBoundingClientRect();
@@ -133,9 +144,15 @@ const GAME_KEYS = new Set([
   "Numpad7",
   "Numpad8",
   "Numpad9",
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD",
 ]);
 
 window.addEventListener("keydown", (event) => {
+  keys[event.code] = true; // RESTORED: Track held-down keys for continuous movement
+  resumeAudioContext(); // Ensure audio context is active on any key press
   if (GAME_KEYS.has(event.code)) event.preventDefault();
   if (pressedOnce[event.code]) return;
   pressedOnce[event.code] = true;
@@ -183,6 +200,7 @@ window.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("keyup", (event) => {
+  keys[event.code] = false; // RESTORED: Untrack released keys to stop movement
   pressedOnce[event.code] = false;
 });
 
@@ -210,6 +228,7 @@ function fireBasicAttack() {
       player.damage,
       "basic",
     );
+    playSFX("cannon");
     return;
   }
 
@@ -259,6 +278,7 @@ function fireEnemyAttack() {
       enemy.damage,
       "basic",
     );
+    playSFX("cannon");
     return;
   }
 
@@ -309,6 +329,7 @@ function fireAllyAttack() {
       ally.damage,
       "basic",
     );
+    playSFX("cannon");
     return;
   }
 
@@ -355,6 +376,7 @@ function fireAiCarrierAttack(primaryTarget) {
     enemy.damage,
     "basic",
   );
+  playSFX("cannon");
 }
 
 function clampShipToCanvas(ship) {
@@ -489,6 +511,7 @@ function drawWaveTransitionOverlay() {
 }
 
 function initGame() {
+  playBGM("battleBGM ");
   playerMod.initPlayer(state.playerClass);
   if (state.campaignMode) {
     const missionSpawns = {
@@ -626,6 +649,7 @@ function tickBurstQueues(dt) {
           player.damage,
           "basic",
         );
+        playSFX("cannon");
       }
     }
   }
@@ -648,6 +672,7 @@ function tickBurstQueues(dt) {
           source.damage,
           "basic",
         );
+        playSFX("cannon");
       }
     }
   }
@@ -669,12 +694,31 @@ function tickBurstQueues(dt) {
           ally.damage,
           "basic",
         );
+        playSFX("cannon");
       }
     }
   }
 }
 
 function update(dt) {
+  if (
+    [
+      "start",
+      "modeHub",
+      "selection",
+      "modeSelect",
+      "instructions",
+      "campaignBriefing",
+      "campaignComplete",
+    ].includes(state.gameState)
+  ) {
+    playBGM("menuBGM");
+  } else if (state.gameState === "playing") {
+    playBGM("battleBGM");
+  } else if (state.gameState === "win" || state.gameState === "gameOver") {
+    stopBGM();
+  }
+
   // Handle campaign briefing state
   if (state.gameState === "campaignBriefing") {
     if (prevGameState !== "campaignBriefing") resetTypewriter();

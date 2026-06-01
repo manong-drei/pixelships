@@ -6,6 +6,7 @@ import {
 import { planePending, enemyPlanePending } from "./planes.js";
 import * as playerMod from "./player.js";
 import * as enemyMod from "./enemy.js";
+import { playSFX } from "./audio.js";
 
 const pendingBarrage = [];
 const pendingEnemyBarrage = [];
@@ -46,12 +47,15 @@ export function triggerSkill() {
   player.skillTimer = player.skillCooldown;
   switch (player.classKey) {
     case "destroyer":
+      playSFX("torpedo");
       fireTorpedo(player);
       break;
     case "cruiser":
+      playSFX("overdrive");
       activateOverdrive(player, playerOverdrive);
       break;
     case "battleship":
+      playSFX("cannon");
       scheduleBarrage(player);
       break;
   }
@@ -68,12 +72,15 @@ export function triggerEnemySkill() {
   enemy.skillTimer = enemy.skillCooldown;
   switch (enemy.classKey) {
     case "destroyer":
+      playSFX("torpedo");
       fireEnemyTorpedo(enemy);
       break;
     case "cruiser":
+      playSFX("overdrive");
       activateOverdrive(enemy, enemyOverdrive);
       break;
     case "battleship":
+      playSFX("cannon");
       scheduleEnemyBarrage(enemy);
       break;
   }
@@ -90,12 +97,15 @@ export function triggerAllySkill() {
   ally.skillTimer = ally.skillCooldown;
   switch (ally.classKey) {
     case "destroyer":
+      playSFX("torpedo");
       fireAllyTorpedo(ally);
       break;
     case "cruiser":
+      playSFX("overdrive");
       activateOverdrive(ally, allyOverdrive);
       break;
     case "battleship":
+      playSFX("cannon");
       scheduleAllyBarrage(ally);
       break;
   }
@@ -120,8 +130,7 @@ function fireTorpedo(player) {
 
 function fireAllyTorpedo(ally) {
   const baseAngle = Math.atan2(ally.dir.y, ally.dir.x);
-  const angles =
-    ally.torpedoMode === "wide" ? [-8, -4, 4, 8] : [-4, -2, 2, 4];
+  const angles = ally.torpedoMode === "wide" ? [-8, -4, 4, 8] : [-4, -2, 2, 4];
   for (const spreadDegrees of angles) {
     const fireAngle = baseAngle + spreadDegrees * (Math.PI / 180);
     spawnPlayerProjectile(
@@ -251,7 +260,10 @@ function scheduleEnemyBarrage(enemy) {
 
 function launchPlanes() {
   const player = playerMod.player;
-  const target = enemyMod.enemy ?? enemyMod.waveEnemies.find((waveEnemy) => waveEnemy.health > 0) ?? null;
+  const target =
+    enemyMod.enemy ??
+    enemyMod.waveEnemies.find((waveEnemy) => waveEnemy.health > 0) ??
+    null;
   if (!player || !target) return;
   const isTorpedo = player.acMode === "torpedoPlanes";
   const timer = isTorpedo ? player.torpedoSkillTimer : player.diveSkillTimer;
@@ -289,14 +301,15 @@ function launchPlanes() {
 
 function launchAllyPlanes() {
   const ally = enemyMod.ally;
-  const target = enemyMod.enemy ?? enemyMod.waveEnemies.find((waveEnemy) => waveEnemy.health > 0) ?? null;
+  const target =
+    enemyMod.enemy ??
+    enemyMod.waveEnemies.find((waveEnemy) => waveEnemy.health > 0) ??
+    null;
   if (!ally || !target) return;
   const isTorpedo = ally.acMode === "torpedoPlanes";
   const timer = isTorpedo ? ally.torpedoSkillTimer : ally.diveSkillTimer;
   if (timer > 0) return;
-  const available = isTorpedo
-    ? ally.torpedoPlanesReady
-    : ally.diveBombersReady;
+  const available = isTorpedo ? ally.torpedoPlanesReady : ally.diveBombersReady;
   if (available <= 0) return;
   const planeType = isTorpedo ? "torpedo" : "dive";
   const launchCount = Math.min(available, 2);

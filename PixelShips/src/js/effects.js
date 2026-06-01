@@ -1,4 +1,5 @@
 import { ctx } from "./canvas.js";
+import { playSFX } from "./audio.js";
 
 const explosionImage = new Image();
 explosionImage.src = "assets/effects/explosion.png";
@@ -11,7 +12,6 @@ const SPLASH_ROWS = 2;
 const SPLASH_FRAME_COUNT = SPLASH_COLS * SPLASH_ROWS;
 const SPLASH_FRAME_DURATION_MS = 80;
 const SPLASH_SIZE = 48;
-
 const activeSplashes = [];
 
 export function spawnSplash(x, y) {
@@ -41,9 +41,14 @@ export function drawSplashes() {
     const row = Math.floor(splash.frame / SPLASH_COLS);
     ctx.drawImage(
       splashImage,
-      col * frameW, row * frameH, frameW, frameH,
-      splash.x - SPLASH_SIZE / 2, splash.y - SPLASH_SIZE / 2,
-      SPLASH_SIZE, SPLASH_SIZE,
+      col * frameW,
+      row * frameH,
+      frameW,
+      frameH,
+      splash.x - SPLASH_SIZE / 2,
+      splash.y - SPLASH_SIZE / 2,
+      SPLASH_SIZE,
+      SPLASH_SIZE,
     );
   }
 }
@@ -56,11 +61,11 @@ const FRAME_COUNT = 8;
 const FRAME_W = 352;
 const FRAME_H = 366;
 const FRAME_DURATION_MS = 100;
-
 const activeExplosions = [];
 
 export function spawnExplosion(x, y, size = 254) {
   activeExplosions.push({ x, y, frame: 0, timer: 0, size });
+  playSFX("explosion");
 }
 
 export function updateExplosions(dt) {
